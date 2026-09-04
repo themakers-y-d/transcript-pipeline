@@ -1,0 +1,4 @@
+# Machine-specific and runtime files never belong in the public repo.
+scripts/config.sh
+scripts/*-state.txt
+scripts/*-heartbeat.txt

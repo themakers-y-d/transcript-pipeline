@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Absorber schedule. Claude fills the placeholders during install:
+    __LABEL__        the launchd label, e.g. com.example.transcript-absorber
+    __SCRIPT_PATH__  absolute path to transcript-absorber.sh
+    __PATH__         an explicit PATH including ~/.local/bin and /opt/homebrew/bin (see the
+                     uploader template for why).
+    __LOG_DIR__      a real directory for logs.
+
+  Runs TWICE a day, and that is deliberate. The uploader does not always finish quickly:
+  building and uploading a day's meetings can take many minutes, so an absorber run a few
+  minutes after the uploader may scan a folder that has not filled yet. The morning run is the
+  reliable main pass over yesterday's transcripts; the evening run is a same-day best effort.
+  Do not promise same-evening absorption. Better still, gate the absorber on the uploader's
+  heartbeat showing today's run before treating the evening pass as complete. [verify the real
+  finish times on this machine and adjust.]
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>__LABEL__</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>__SCRIPT_PATH__</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>__PATH__</string>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>__LOG_DIR__/transcript-absorber.stdout.log</string>
+	<key>StandardErrorPath</key>
+	<string>__LOG_DIR__/transcript-absorber.stderr.log</string>
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict>
+			<key>Hour</key>
+			<integer>8</integer>
+			<key>Minute</key>
+			<integer>30</integer>
+		</dict>
+		<dict>
+			<key>Hour</key>
+			<integer>22</integer>
+			<key>Minute</key>
+			<integer>40</integer>
+		</dict>
+	</array>
+</dict>
+</plist>

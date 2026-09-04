@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Uploader schedule. Claude fills the placeholders during install:
+    __LABEL__        the launchd label, e.g. com.example.transcript-uploader
+    __SCRIPT_PATH__  absolute path to transcript-uploader.sh
+    __PATH__         an explicit PATH. launchd strips PATH, so 'node' and 'git' are not found
+                     without this. MUST include ~/.local/bin and /opt/homebrew/bin. Build it
+                     around where 'claude' and 'node' actually live on THIS machine (preflight
+                     printed those), e.g.:
+                     /Users/<you>/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+    __LOG_DIR__      a real directory for logs, e.g. /Users/<you>/Library/Logs
+
+  Runs once nightly. Pick a time a few minutes before the absorber, so the day's
+  transcripts are in the shared folder before the absorber scans it.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>__LABEL__</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>__SCRIPT_PATH__</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>__PATH__</string>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>__LOG_DIR__/transcript-uploader.stdout.log</string>
+	<key>StandardErrorPath</key>
+	<string>__LOG_DIR__/transcript-uploader.stderr.log</string>
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict>
+			<key>Hour</key>
+			<integer>22</integer>
+			<key>Minute</key>
+			<integer>10</integer>
+		</dict>
+	</array>
+</dict>
+</plist>
