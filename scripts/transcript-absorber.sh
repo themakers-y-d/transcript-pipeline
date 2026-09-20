@@ -90,11 +90,26 @@ if ! git -C "$VAULT" rev-parse --git-dir >/dev/null 2>&1; then
   echo "FAIL $(date '+%F %T') vault-not-git" > "$HEALTH_FILE"
   exit 1
 fi
-if ! git -C "$VAULT" diff --quiet || ! git -C "$VAULT" diff --cached --quiet; then
+# A freshly created vault has been `git init`ed but never committed, so it has no
+# HEAD and therefore nothing to revert to. Give it a first commit before the model
+# writes a single line, otherwise the very first unattended run has no safety net.
+if ! git -C "$VAULT" rev-parse HEAD >/dev/null 2>&1; then
+  git -C "$VAULT" add -A
+  git -C "$VAULT" commit -q --allow-empty -m "initial commit, before the first transcript absorb" || true
+fi
+# Untracked files count too: on a new vault the memory scaffold is untracked, and
+# `git diff` alone does not see it.
+if ! git -C "$VAULT" diff --quiet || ! git -C "$VAULT" diff --cached --quiet \
+   || [ -n "$(git -C "$VAULT" ls-files --others --exclude-standard)" ]; then
   git -C "$VAULT" add -A
   git -C "$VAULT" commit -q -m "restore point before transcript absorb $TODAY-$NOW_HHMM" || true
 fi
 RESTORE_POINT="$(git -C "$VAULT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+if [ "$RESTORE_POINT" = "unknown" ]; then
+  echo "$(date '+%F %T') ERROR: no restore point could be created in the vault. Refusing to write unattended." >&2
+  echo "FAIL $(date '+%F %T') no-restore-point" > "$HEALTH_FILE"
+  exit 1
+fi
 echo "$(date '+%F %T') restore point: $RESTORE_POINT"
 
 PROMPT="Autonomous headless run. NO human is watching this and nobody will approve your output, so every gate in the protocol is doing the job the owner's eyes used to do.
