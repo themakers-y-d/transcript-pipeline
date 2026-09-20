@@ -4,7 +4,7 @@ Owner: the agent that absorbs transcripts.
 
 Transcripts come in, the system comes out current. This protocol runs unattended, writes to the real files, and reports what it changed. Nobody approves it line by line, so every gate below is doing the job a person's eyes used to do.
 
-This file is generic. Wherever it says "the memory file that owns it" or "your agents' memory files", it means whatever files your own Claude Code setup uses to remember how the work is done, an agent file, a craft file, a profile, a rules file. Adapt the routing in step 7 to your own system when you install it.
+This file ships generic and is made specific at install time. The routing table in step 7 must hold REAL file paths before the first unattended run. If you are reading this and step 7 still says "your writing memory" instead of a path, the install is unfinished: stop and say so, because an unattended run with no defined destination invents a new filename every night and produces a pile instead of a memory.
 
 ## The one thing that overrides everything
 
@@ -58,30 +58,36 @@ This exists because a transcript once said 520 where the real figure was 5,200, 
 
 Not one flat list. Each part of your system gets what it should learn, phrased as the line that lands in its memory, a professional lesson, not a summary.
 
-Adapt this table to your own setup. A rough default:
+The installer fills the right column with real paths. These are the roles, and the paths a fresh install creates by default:
 
 | The fact is about | Where it goes |
 |---|---|
-| Words, copy, a message that worked | your writing memory |
-| Positioning, offer, audience, objection | your strategy memory |
-| How it looks, brand, layout | your design memory |
-| Something that runs, a tool, a bug | your automation memory |
-| Who you are, your business facts | your profile |
-| How the whole system should behave | your standing-rules file |
+| Words, copy, a message that worked | `memory/writing.md` |
+| Positioning, offer, audience, objection | `memory/strategy.md` |
+| How it looks, brand, layout | `memory/design.md` |
+| Something that runs, a tool, a bug | `memory/automation.md` |
+| Who you are, your business facts | `memory/profile.md` |
+| How the whole system should behave | `memory/rules.md` |
+
+An owner who already had a system has his own files here instead. Either way: paths, not roles. Never write to a file that is not in this table without saying so in the report.
 
 **A fact nobody owns is a finding, not a leftover.** Either it belongs in your profile or your rules, or nobody holds that job yet and the report says so plainly.
 
 ### 8. Write it in
 
-This protocol writes autonomously, on your explicit instruction. Append dated lines to the memory files, at the bottom, never rewriting what is there.
+This protocol writes autonomously, on the owner's explicit instruction. Append dated lines at the bottom of the files in the step 7 table, under their journal heading, never rewriting what is already there.
+
+Write in the owner's language, the one the transcript is in. A line the owner cannot read is a line he will never check.
 
 Mark an outcome as an outcome: prefix `outcome:` on anything that happened in the world rather than something you prefer.
 
 **What is never written, only reported:** any number marked `[לאימות]`, anything naming a client, anything about money not already confirmed in your own files, and anything drawn from a contaminated stretch.
 
-### 9. File the source and write the report
+### 9. Write the report
 
-Move each source transcript into a processed/archive location so it is not re-read. Write one dated report of what this run did.
+You do not move or delete the source. You have no tool to, and that is deliberate: the source stays where it is, and the state file kept outside you is what makes sure a transcript is never read twice. Report the ids you finished and let the wrapper record them.
+
+Write one dated report of what this run did, into the reports folder the install set up (`transcripts/reports/` by default), one file per run, named by date.
 
 ### 10. Report what changed, in one screen
 
