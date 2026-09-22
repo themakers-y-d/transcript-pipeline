@@ -20,7 +20,9 @@ Nothing below repeats it. These are the steps; the mechanics and every reason ar
 
 > *"זה מחבר את הפגישות שלך למערכת. כל מה שנאמר בהן נכנס לזיכרון של הצוות פעמיים ביום, לבד. אני מתקין, ומראה לך ריצה אמיתית אחת לפני שזה נשאר דלוק."*
 
-Then name the three things it costs and **stop for their answer**: a Claude subscription (they have it), a **Wispr Flow subscription**, and a Google account. No third service, nothing passes through anyone else, everything stays on their machine.
+Then name what it costs and **stop for their answer**: a **Claude subscription** (the two scheduled jobs run the CLI and draw on it), a **Wispr Flow subscription**, a Google account, and a Mac that is awake at the scheduled hour.
+
+⛔ **And say plainly where their words go.** Wispr transcribes and Google Drive stores, both under their own accounts, with no service of ours in between. **That is not "everything stays on your machine", and claiming it would be false** — the bonus page says so in those words, and a skill that contradicts the page is the version they will believe.
 
 ## 2. Check this is a MAKERS vault, and stop if it is not
 
