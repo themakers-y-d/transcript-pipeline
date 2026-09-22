@@ -2,3 +2,4 @@
 scripts/config.sh
 scripts/*-state.txt
 scripts/*-heartbeat.txt
+scripts/uploader-empty.txt
