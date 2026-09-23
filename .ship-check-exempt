@@ -1,0 +1,41 @@
+# הצהרות פטור למדריך הזה. פטור בלי סיבה כתובה הוא פטור שאף אחד לא יבדוק שוב.
+
+[stale]
+launchd  # מנגנון התזמון של מק, והדרך שבה הצינור הזה באמת רץ פעמיים ביום. ירד מהסטאק של מתנת ה-DM, לא מכאן.
+
+[external]
+# נתיבים שהמדריך מזכיר והם חיים בתיקייה של הקורא, לא כאן. חלקם קבצים שההתקנה
+# עצמה מקימה אצלו, וחלקם היעד שאליו הערכה מעתיקה קובץ.
+CLAUDE.md
+.mcp.json
+config.sh
+scripts/config.sh
+.claude/transcript-protocol.md
+memory/profile.md
+memory/strategy.md
+memory/writing.md
+memory/design.md
+memory/automation.md
+memory/rules.md
+
+# נתיבים שחיים בתוך וולט MAKERS של הקורא. הערכה שולחת אותם תחת makers/,
+# והמדריך נוקב בהם כפי שהם נראים אצלו אחרי ההעתקה.
+2-makers/morty/morty.md
+2-makers/scribe/scribe.md
+2-makers/vibecoder/refs/transcript-infrastructure.md
+3-work/now/transcript-absorption/_process/proposed-rules.md
+_process/proposed-rules.md
+proposed-rules.md
+4-learned/state.md
+4-learned/log.md
+4-learned/README.md
+.claude/rules/records.md
+.claude/scripts/config.sh
+.claude/scripts/config.example.sh
+state.md
+log.md
+records.md
+system.md
+
+[novoice]
+makers/  # מטען של קובצי סוכן באנגלית שנוסע לוולט של הקורא, לא פרוזה שהוא קורא במדריך. מקף ארוך באנגלית אינו הסימן שכלל המקפים נולד לתפוס.
