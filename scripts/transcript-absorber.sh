@@ -210,7 +210,7 @@ You are a courier. You read a list and write it down. You do not filter it, you 
 STEP 1. Call ${DRIVE_TOOL_PREFIX}search_files with query exactly: parentId = '$DRIVE_FOLDER_ID'
 Direct children only, do NOT recurse. Pass excludeContentSnippets = true — ids and titles are all that is wanted here, never body text.
 
-STEP 1b. PAGINATE UNTIL THE END. This folder holds more documents than a single page returns, and a first page is NOT the folder. After each call, look for next_page_token in the response: while there is one, call search_files AGAIN with the same query and that value as pageToken, and keep the items from every page. Stop only when a response comes back with no next_page_token. Do not stop early because the list is long, and do not stop because a page looks like enough. Collecting every page IS the job.
+STEP 1b. PAGINATE UNTIL THE END. This folder holds more documents than a single page returns, and a first page is NOT the folder. After each call, look for the next-page token in the response, which may come back as next_page_token or as nextPageToken: while there is one, call search_files AGAIN with the same query and that value as pageToken, and keep the items from every page. Stop only when a response comes back with neither of those fields. Do not stop early because the list is long, and do not stop because a page looks like enough. Collecting every page IS the job.
 
 STEP 2. Use the Write tool to write the file $ENUM_STAGING/docs.txt. Write ONE line for EVERY item returned across ALL the pages, in the order they were returned, with no exceptions and no omissions, including items that look old, empty, duplicated or irrelevant, and including items that are not Google Docs. Deciding which items matter is not your job on this run.
 
@@ -311,7 +311,7 @@ ${EXTRA_PROMPT_FACTS:-}
 STEP 1. Call ${DRIVE_TOOL_PREFIX}search_files with query exactly: parentId = '$DRIVE_FOLDER_ID'
 Direct children only, do NOT recurse. Keep only mimeType 'application/vnd.google-apps.document'.
 
-STEP 1b. PAGINATE UNTIL THE END, and this is not optional. This folder holds far more documents than one page returns, and a first page is NOT the folder. After each call, look for next_page_token in the response: while there is one, call search_files AGAIN with the same query and that value as pageToken, and keep the items from every page. Stop only when a response comes back with no next_page_token.
+STEP 1b. PAGINATE UNTIL THE END, and this is not optional. This folder holds far more documents than one page returns, and a first page is NOT the folder. After each call, look for the next-page token in the response, which may come back as next_page_token or as nextPageToken: while there is one, call search_files AGAIN with the same query and that value as pageToken, and keep the items from every page. Stop only when a response comes back with neither of those fields.
 WHY IT MATTERS, because without the reason this step gets skipped when the first page looks like plenty: the newest documents come back first, so on a quiet day page one is all you need and everything looks right. On a day that produced MORE new documents than fit on one page, the ones that did not fit are absorbed nowhere, and on the next run page one is full of documents already in the state file, so they never come back. They are not delayed, they are lost silently, and nothing anywhere reports it.
 
 STEP 2. Read $STATE_FILE (lines starting with # are comments). Keep only docs whose Drive id is NOT already listed. If there are zero new docs, write nothing at all, do not create a report, and skip to the final line reporting 0.
@@ -353,17 +353,28 @@ SEEN=0
 [ -s "$ENUM_STAGING/docs.txt" ] && SEEN="$(awk -F'\t' 'NF>=2 && !seen[$1]++ {n++} END {print n+0}' "$ENUM_STAGING/docs.txt")"
 echo "$(date '+%F %T') seen=$SEEN document(s) in the folder (counted here, not reported; enum rc=$ENUM_RC)"
 
+# The state-file count is read BEFORE the verdict on an empty folder, because it is the
+# only thing that tells zero-because-new apart from zero-because-broken, and those two are
+# identical to the listing itself.
+STATE_IDS="$(grep -c '^[^#[:space:]]' "$STATE_FILE" 2>/dev/null | head -1 | tr -dc '0-9')"
+[ -z "${STATE_IDS:-}" ] && STATE_IDS=0
+
 ENUM_DEAD=0
-if [ "$SEEN" -eq 0 ]; then
-  echo "$(date '+%F %T') ERROR: the Drive folder enumeration returned zero documents. The folder is never empty once the uploader has run, so this is a dead connection, not a quiet day." >&2
+if [ "$SEEN" -eq 0 ] && [ "$STATE_IDS" -gt 0 ]; then
+  echo "$(date '+%F %T') ERROR: the Drive folder enumeration returned zero documents, but this run has already absorbed $STATE_IDS of them from that folder. Documents do not leave it, so this is a dead connection, not a quiet day." >&2
   ENUM_DEAD=1
+elif [ "$SEEN" -eq 0 ]; then
+  # Zero-because-new. On a fresh install the folder really is empty until the first meeting
+  # clears the floor, and an empty state file says nothing has ever been absorbed to
+  # contradict that. The old test called this a dead connection and fired a failure alert on
+  # the owner's first night, on a pipeline behaving exactly as designed. 23.09.2026, found by
+  # walking the guide as somebody who has no system.
+  echo "$(date '+%F %T') the folder is empty and nothing has been absorbed from it yet. This is a fresh install waiting for its first meeting, not a dead connection."
 fi
 
 # A second, free assertion the disk count makes possible: every id in the state file came from
 # a document in this folder and nothing is ever deleted from it, so a listing SHORTER than the
 # state file is truncated and some documents are invisible to this run.
-STATE_IDS="$(grep -c '^[^#[:space:]]' "$STATE_FILE" 2>/dev/null | head -1 | tr -dc '0-9')"
-[ -z "${STATE_IDS:-}" ] && STATE_IDS=0
 if [ "$SEEN" -gt 0 ] && [ "$SEEN" -lt "$STATE_IDS" ]; then
   echo "$(date '+%F %T') ERROR: the folder listing returned $SEEN documents but the state file already holds $STATE_IDS ids. The listing is truncated. (If documents were deleted from Drive on purpose, prune those ids from $STATE_FILE and this clears.)" >&2
   ENUM_DEAD=1
@@ -372,6 +383,15 @@ fi
 # --- record finished ids, OUTSIDE the model ---
 RECORDED=0
 FAILED="$(grep -m1 '^TRANSCRIPT_RESULT' "$RUN_OUT" | sed -n 's/.*failed=\([0-9]*\).*/\1/p')"
+ABSORBED_N="$(grep -m1 '^TRANSCRIPT_RESULT' "$RUN_OUT" | sed -n 's/.*absorbed=\([0-9]*\).*/\1/p')"
+# The per-run cap lives inside the prompt, so it is a request and not a gate: bash
+# cannot enforce it, because only the model can see the Drive folder. What bash CAN
+# do is refuse to let an overrun look like obedience. Without this line, a run that
+# ignored the cap and wrote a backlog into the owner's memory files is indistinguishable
+# from one that honoured it.
+if [ -n "${ABSORBED_N:-}" ] && [ "${ABSORBED_N:-0}" -gt "${MAX_NEW_PER_RUN_ABSORB:-15}" ] 2>/dev/null; then
+  echo "$(date '+%F %T') WARNING absorbed=$ABSORBED_N is over the cap of $MAX_NEW_PER_RUN_ABSORB. The cap is an instruction to the model, not a gate, and this run did not honour it. Read the dated report before trusting it; the undo line below reverses the whole run."
+fi
 if [ "$RC" -eq 0 ]; then
   DONE_IDS="$(grep -m1 '^TRANSCRIPT_DONE_IDS' "$RUN_OUT" | sed 's/^TRANSCRIPT_DONE_IDS//')"
   for id in $DONE_IDS; do
@@ -418,8 +438,15 @@ if [ "$RC" -eq 0 ]; then
   HELD_BACK="$(printf '%s' "$HELD_BACK")"
   [ -n "$HELD_BACK" ] && HELD_COUNT="$(printf '%s\n' "$HELD_BACK" | wc -l | tr -d ' ')"
   if [ -n "$CHANGED" ]; then
-    printf '%s\n' "$CHANGED" | tr '\n' '\0' | xargs -0 git -C "$VAULT" add -- 2>/dev/null
-    if git -C "$VAULT" commit -q -m "transcript absorb $TODAY-$NOW_HHMM: absorbed new transcripts (undo: git revert --no-edit this commit)"; then
+    # The commit is scoped to this run's paths, and the pathspec is not optional.
+    # `git commit` with no paths takes the WHOLE index, including files the owner
+    # staged himself and never committed. He would find out only when he ran the
+    # undo line this script prints him, and that undo would erase his own work
+    # along with ours. The uploader has always passed a pathspec; this end did not.
+    CHANGED_PATHS=()
+    while IFS= read -r cp; do [ -n "$cp" ] && CHANGED_PATHS+=("$cp"); done <<< "$CHANGED"
+    git -C "$VAULT" add -- "${CHANGED_PATHS[@]}" 2>/dev/null
+    if git -C "$VAULT" commit -q -m "transcript absorb $TODAY-$NOW_HHMM: absorbed new transcripts (undo: git revert --no-edit this commit)" -- "${CHANGED_PATHS[@]}"; then
       PIPE_COMMIT="$(git -C "$VAULT" rev-parse --short HEAD 2>/dev/null)"
       echo "$(date '+%F %T') committed $PIPE_COMMIT with $(printf '%s\n' "$CHANGED" | wc -l | tr -d ' ') path(s)"
       echo "$(date '+%F %T') TO UNDO THIS RUN: git -C \"$VAULT\" revert --no-edit $PIPE_COMMIT"
