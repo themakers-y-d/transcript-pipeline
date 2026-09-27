@@ -18,7 +18,8 @@ cat "$W/apply.txt"
 [ "$rc1" = 1 ] && grep -q "change(s) outstanding" "$W/check1.txt" && ok "--check on a fresh vault reports outstanding changes" || bad "--check before (rc $rc1)"
 [ "$rc2" = 0 ] && ok "apply exits 0" || bad "apply (rc $rc2)"
 [ "$rc3" = 0 ] && grep -q "Everything is already in place" "$W/check2.txt" && ok "second --check: everything in place" || { bad "--check after (rc $rc3)"; cat "$W/check2.txt"; }
-CR_FILES="$(grep -rl $'\r' "$W/vault" --include='*.md' --include='*.sh' --include='*.py' --include='.gitattributes' 2>/dev/null)"
+crs() { tr -cd '\r' < "$1" | wc -c | tr -d ' '; }
+CR_FILES="$(find "$W/vault" -type f \( -name '*.md' -o -name '*.sh' -o -name '*.py' -o -name '.gitattributes' \) | while IFS= read -r f; do [ "$(crs "$f")" = 0 ] || echo "$f"; done)"
 [ -z "$CR_FILES" ] && ok "no edited or copied text file carries a CR" || { bad "files with CR:"; echo "$CR_FILES"; }
 [ -f "$W/vault/.claude/scripts/.gitattributes" ] && ok ".claude/scripts/.gitattributes landed" || bad ".gitattributes missing"
 if [ "$WIN" = 1 ]; then
@@ -27,7 +28,7 @@ if [ "$WIN" = 1 ]; then
   if git -C "$KIT" show origin/main:makers/apply-to-vault.py > "$KIT/makers/apply-to-vault-main.py" 2>/dev/null; then
     "$PY" "$KIT/.github/portability/make-fixture-vault.py" "$W/vault-main" >/dev/null
     "$PY" "$KIT/makers/apply-to-vault-main.py" "$W/vault-main" > /dev/null 2>&1
-    n="$(grep -rl $'\r' "$W/vault-main" --include='*.md' | wc -l | tr -d ' ')"
+    n="$(find "$W/vault-main" -type f -name '*.md' | while IFS= read -r f; do [ "$(crs "$f")" = 0 ] || echo "$f"; done | wc -l | tr -d ' ')"
     rm -f "$KIT/makers/apply-to-vault-main.py"
     [ "$n" -gt 0 ] && ok "negative control: main's apply-to-vault.py wrote CRLF into $n file(s) on Windows" || bad "negative control: main wrote no CRLF, so this check proves nothing"
   fi

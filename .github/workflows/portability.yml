@@ -39,7 +39,7 @@ jobs:
         run: |
           git ls-files --eol scripts .github/portability
           for f in scripts/*.sh scripts/*.py; do
-            n=$(grep -c $'\r' "$f"); echo "$f  CR lines: $n"; [ "$n" = 0 ] || exit 1
+            n=$(tr -cd '\r' < "$f" | wc -c | tr -d ' '); echo "$f  CR bytes: $n"; [ "$n" = 0 ] || exit 1
           done
           bash -n scripts/transcript-uploader.sh && bash -n scripts/transcript-absorber.sh && echo "bash -n: both scripts parse"
 
@@ -48,7 +48,7 @@ jobs:
           git worktree add --detach "$RUNNER_TEMP/neg" origin/main
           cd "$RUNNER_TEMP/neg"
           test ! -e .gitattributes
-          n=$(grep -c $'\r' scripts/transcript-uploader.sh); echo "main, CR lines in the uploader: $n"; [ "$n" -gt 0 ]
+          n=$(tr -cd '\r' < scripts/transcript-uploader.sh | wc -c | tr -d ' '); echo "main, CR bytes in the uploader: $n"; [ "$n" -gt 0 ]
           ( source scripts/config.example.sh 2>/dev/null
             case "$LABEL_PREFIX" in *$'\r') echo "main: config.sh values carry a CR, e.g. LABEL_PREFIX=$(printf '%q' "$LABEL_PREFIX")";; *) echo "no CR in the value"; exit 1;; esac )
           echo "what bash says when it runs main's uploader:"
@@ -83,7 +83,7 @@ jobs:
           "$VPY" -c "import zoneinfo; print('with tzdata:', zoneinfo.ZoneInfo('Asia/Jerusalem'))"
           "$VPY" scripts/build-parts.py "$ST" 24000 600 Asia/Jerusalem; cut -f3 "$ST/upload-manifest.tsv"
           grep -q "10:15 |" "$ST/upload-manifest.tsv"
-          od -c "$ST/under-floor-ids.txt" | head -2; ! grep -q $'\r' "$ST/upload-manifest.tsv"
+          [ "$(tr -cd '\r' < "$ST/upload-manifest.tsv" | wc -c | tr -d ' ')" = 0 ] && echo "manifest written with LF"
 
       - name: tzdata for the Python the pipeline will use (what the install runbook does)
         run: python -m pip install --user -q tzdata
@@ -138,7 +138,7 @@ jobs:
 
       - name: "1. LF scripts and bash -n"
         run: |
-          for f in scripts/*.sh scripts/*.py; do n=$(grep -c $'\r' "$f"); echo "$f  CR lines: $n"; [ "$n" = 0 ] || exit 1; done
+          for f in scripts/*.sh scripts/*.py; do n=$(tr -cd '\r' < "$f" | wc -c | tr -d ' '); echo "$f  CR bytes: $n"; [ "$n" = 0 ] || exit 1; done
           bash -n scripts/transcript-uploader.sh && bash -n scripts/transcript-absorber.sh && echo "bash -n: both scripts parse"
 
       - name: "4. Full uploader and absorber runs with a stub claude"
