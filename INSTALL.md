@@ -108,7 +108,7 @@ esac
 
 ```bash
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*)
-  winget install -e --id Python.Python.3.12 --scope user --accept-source-agreements --accept-package-agreements
+  powershell.exe -NoProfile -Command "winget install -e --id Python.Python.3.12 --scope user --accept-source-agreements --accept-package-agreements"
   "$(cygpath -m "$LOCALAPPDATA")/Programs/Python/Python312/python.exe" --version ;;
 esac
 ```

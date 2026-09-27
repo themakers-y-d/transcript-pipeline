@@ -108,6 +108,11 @@ jobs:
           printf 'utf8:    '; PYTHONUTF8=1 python -c "print('C:/Users/\u05d3\u05e0\u05d4')" | od -An -tx1 | head -1
           grep -hiE '^[a-z]:/.*python' "$T"/block*.out
 
+      - name: "winget from Git Bash: through powershell.exe, as the runbooks call it (informational where winget is absent)"
+        run: |
+          printf 'direct:           '; winget --version 2>&1 | head -1 || true
+          printf 'via powershell:   '; powershell.exe -NoProfile -Command "winget --version" 2>&1 | head -1 || true
+
       - name: tzdata for the Python the pipeline will use (what the install runbook does)
         run: python -m pip install --user -q tzdata
 
