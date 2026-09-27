@@ -10,12 +10,14 @@ on:
       - 'scripts/**'
       - 'makers/**'
       - '.gitattributes'
+      - 'INSTALL.md'
       - '.github/**'
   pull_request:
     paths:
       - 'scripts/**'
       - 'makers/**'
       - '.gitattributes'
+      - 'INSTALL.md'
       - '.github/**'
   workflow_dispatch:
 
