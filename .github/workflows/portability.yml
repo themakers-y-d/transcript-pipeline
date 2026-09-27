@@ -1,0 +1,148 @@
+# Proves the kit on Windows (Git Bash, the way Claude Code runs it there) and proves the Mac
+# path did not move. Numbers refer to the verification plan (V1) of the Windows port.
+# Nothing here talks to a model or to Google: `claude` is a stub (.github/portability/).
+name: portability
+
+on:
+  push:
+    branches: [windows-port]
+    paths:
+      - 'scripts/**'
+      - 'makers/**'
+      - '.gitattributes'
+      - '.github/**'
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'makers/**'
+      - '.gitattributes'
+      - '.github/**'
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - name: Git for Windows defaults (checkout with CRLF), before checkout
+        run: git config --global core.autocrlf true
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "1. CRLF: every script checks out LF under core.autocrlf=true"
+        run: |
+          git ls-files --eol scripts .github/portability
+          for f in scripts/*.sh scripts/*.py; do
+            n=$(grep -c $'\r' "$f"); echo "$f  CR lines: $n"; [ "$n" = 0 ] || exit 1
+          done
+          bash -n scripts/transcript-uploader.sh && bash -n scripts/transcript-absorber.sh && echo "bash -n: both scripts parse"
+
+      - name: "1. negative control: the same checkout of main (no .gitattributes) breaks"
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/neg" origin/main
+          cd "$RUNNER_TEMP/neg"
+          test ! -e .gitattributes
+          n=$(grep -c $'\r' scripts/transcript-uploader.sh); echo "main, CR lines in the uploader: $n"; [ "$n" -gt 0 ]
+          ( source scripts/config.example.sh 2>/dev/null
+            case "$LABEL_PREFIX" in *$'\r') echo "main: config.sh values carry a CR, e.g. LABEL_PREFIX=$(printf '%q' "$LABEL_PREFIX")";; *) echo "no CR in the value"; exit 1;; esac )
+          echo "what bash says when it runs main's uploader:"
+          bash scripts/transcript-uploader.sh 2>&1 | head -3 | cat -A | cut -c1-160 || true
+
+      - name: "2. Python resolution: which interpreters exist, and the uploader's own resolver skips a Store-stub python3"
+        run: |
+          for c in python3 python py; do printf '%-8s -> ' "$c"; command -v "$c" || echo "(none)"; done
+          mkdir -p "$RUNNER_TEMP/fake"
+          printf '#!/bin/bash\necho "Python was not found; run without arguments to install from the Microsoft Store." >&2\nexit 49\n' > "$RUNNER_TEMP/fake/python3"
+          chmod +x "$RUNNER_TEMP/fake/python3"
+          sed -n '/^# --- resolve Python 3 once ---/,/^fi$/p' scripts/transcript-uploader.sh > "$RUNNER_TEMP/resolver.sh"
+          test -s "$RUNNER_TEMP/resolver.sh"
+          PATH="$(cygpath -u "$RUNNER_TEMP")/fake:$PATH" bash -c 'python3 -c "print(1)"; echo "fake python3 rc=$?"; source "$0"; echo "resolver picked: $PY"; [ -n "$PY" ] && [ "$PY" != python3 ]' "$RUNNER_TEMP/resolver.sh"
+
+      - name: "3. tzdata: without it the title hour is UTC, with it Asia/Jerusalem"
+        run: |
+          T="$(cygpath -u "$RUNNER_TEMP")"
+          python -m venv "$T/venv"; VPY="$T/venv/Scripts/python.exe"
+          if "$VPY" -c "import zoneinfo; zoneinfo.ZoneInfo('Asia/Jerusalem')" 2>/dev/null; then
+            echo "zoneinfo worked without tzdata on this image"; NO_TZ_FAILS=0
+          else
+            echo "without tzdata: ZoneInfo('Asia/Jerusalem') raises (expected on Windows)"; NO_TZ_FAILS=1
+          fi
+          ST="$T/tz"; mkdir -p "$ST"
+          printf 'm1\t2026-09-20T07:15:00Z\ttrue\tבדיקת שעון\n' > "$ST/meetings.tsv"
+          echo m1 > "$ST/worklist.txt"; echo COMPLETE > "$ST/done-m1.txt"
+          "$VPY" -c "print('דובר 1: שורה של דיבור רצוף בפגישה\n' * 40)" > "$ST/body-m1-p001.txt"
+          "$VPY" scripts/build-parts.py "$ST" 24000 600 Asia/Jerusalem; cut -f3 "$ST/upload-manifest.tsv"
+          if [ "$NO_TZ_FAILS" = 1 ]; then grep -q "07:15 |" "$ST/upload-manifest.tsv"; fi
+          "$VPY" -m pip install -q tzdata
+          "$VPY" -c "import zoneinfo; print('with tzdata:', zoneinfo.ZoneInfo('Asia/Jerusalem'))"
+          "$VPY" scripts/build-parts.py "$ST" 24000 600 Asia/Jerusalem; cut -f3 "$ST/upload-manifest.tsv"
+          grep -q "10:15 |" "$ST/upload-manifest.tsv"
+          od -c "$ST/under-floor-ids.txt" | head -2; ! grep -q $'\r' "$ST/upload-manifest.tsv"
+
+      - name: tzdata for the Python the pipeline will use (what the install runbook does)
+        run: python -m pip install --user -q tzdata
+
+      - name: "4 (+2). Full uploader and absorber runs with a stub claude, a Store-stub python3 first on PATH"
+        run: SUITE_FAKE_PY3=1 bash .github/portability/stub-suite.sh . "$(cygpath -u "$RUNNER_TEMP")/suite"
+
+      - name: "7. Task Scheduler: install, status, run through the scheduler, uninstall"
+        run: |
+          rm -f "$(cygpath -u "$RUNNER_TEMP")/suite/stub/fixtures/absorb-failed-1"
+          bash .github/portability/scheduler-check.sh "$(cygpath -u "$RUNNER_TEMP")/suite/vault" com.portability.transcript
+
+      - name: "8. apply-to-vault.py on a fixture MAKERS vault (LF kept, .gitattributes and schedule.ps1 land)"
+        run: bash .github/portability/apply-check.sh "$(cygpath -u "$RUNNER_TEMP")/apply"
+
+      - name: "5. Command-line limit: a native exe refuses 40000 Hebrew characters, takes 30000"
+        run: |
+          H40="$(python -c "print('א' * 40000)")"
+          if python -c "import sys; print(len(sys.argv[1]))" "$H40" 2> "$RUNNER_TEMP/e2big.txt"; then
+            echo "40000 characters were accepted"; exit 1
+          fi
+          echo "40000 characters: refused: $(head -c 200 "$RUNNER_TEMP/e2big.txt")"
+          H30="$(python -c "print('א' * 30000)")"
+          python -c "import sys; print('30000 characters: accepted, argv length', len(sys.argv[1]))" "$H30"
+          echo "and through stdin, 40000 is no problem:"
+          printf '%s' "$H40" | python -c "import sys; print(len(sys.stdin.read()))"
+
+      - name: "5. negative control: the suite at the old 40000 default fails its long upload on Windows"
+        run: |
+          T="$(cygpath -u "$RUNNER_TEMP")/suite40k"
+          if CHUNK_CHAR_LIMIT=40000 bash .github/portability/stub-suite.sh . "$T" > "$RUNNER_TEMP/suite40k.txt" 2>&1; then
+            cat "$RUNNER_TEMP/suite40k.txt"; echo "the 40000 run passed, so the limit was not hit"; exit 1
+          fi
+          grep -E "INFO|U1 exits" "$RUNNER_TEMP/suite40k.txt"
+          grep "UPLOAD FAILED" "$T/out/U1.log" | head -2
+          [ "$(tr -d '\r\n' < "$T/out/U1.rc")" = 5 ]
+
+      - name: keep the evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-suite-out
+          path: |
+            ${{ runner.temp }}/suite/out
+            ${{ runner.temp }}/apply
+          if-no-files-found: ignore
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "1. LF scripts and bash -n"
+        run: |
+          for f in scripts/*.sh scripts/*.py; do n=$(grep -c $'\r' "$f"); echo "$f  CR lines: $n"; [ "$n" = 0 ] || exit 1; done
+          bash -n scripts/transcript-uploader.sh && bash -n scripts/transcript-absorber.sh && echo "bash -n: both scripts parse"
+
+      - name: "4. Full uploader and absorber runs with a stub claude"
+        run: bash .github/portability/stub-suite.sh . "$RUNNER_TEMP/suite"
+
+      - name: "8. apply-to-vault.py on a fixture MAKERS vault"
+        run: bash .github/portability/apply-check.sh "$RUNNER_TEMP/apply"

@@ -28,7 +28,8 @@ DRIVE_FOLDER_ID="${DRIVE_FOLDER_ID:-CHANGE-ME-drive-folder-id}"
 WISPR_TOOL_PREFIX="${WISPR_TOOL_PREFIX:-mcp__wisprflow__}"
 DRIVE_TOOL_PREFIX="${DRIVE_TOOL_PREFIX:-mcp__claude_ai_Google_Drive__}"
 
-# --- launchd label prefix (identifies the two scheduled jobs) ---
+# --- label prefix (identifies the two scheduled jobs) ---
+# The launchd label on a Mac, the Task Scheduler task name on Windows. Same value, same job.
 LABEL_PREFIX="${LABEL_PREFIX:-com.example.transcript}"
 
 # --- Timezone, as a real IANA zone name so daylight saving is handled ---
@@ -39,6 +40,11 @@ TIMEZONE="${TIMEZONE:-Asia/Jerusalem}"
 # The Drive create_file tool has a size ceiling far below Google Docs' own. A meeting whose
 # text exceeds this many CHARACTERS is split into parts, one Google Doc per part. 40000 is
 # proven safe for one create_file emission.
+# ON WINDOWS the uploader presets 24000 before this line is read, so this line then keeps
+# 24000: Windows caps one command line at 32,767 characters and the upload prompt carries a
+# whole part plus about 2,000 characters of instructions, so a 40000 part cannot even launch
+# there. To force a value on Windows, write it as a plain assignment (CHUNK_CHAR_LIMIT=20000),
+# and keep it under about 28000.
 CHUNK_CHAR_LIMIT="${CHUNK_CHAR_LIMIT:-40000}"
 
 # --- Batch caps: a backlog drains across runs, never in one burst ---
@@ -63,6 +69,17 @@ PROTOCOL_FILE="${PROTOCOL_FILE:-.claude/transcript-protocol.md}"
 
 # --- Where the run's dated reports and its staging folders live, RELATIVE TO THE VAULT ---
 REPORTS_DIR="${REPORTS_DIR:-transcripts/reports}"
+
+# --- Where the health and warning flags are written ---
+# Mac: ~/Library/Logs, as it always was. ON WINDOWS the scripts preset
+# %LOCALAPPDATA%/transcript-pipeline/logs before this line is read, which is also where the
+# scheduled task (scripts/windows/schedule.ps1) writes its own stdout and stderr logs.
+LOG_DIR="${LOG_DIR:-$HOME/Library/Logs}"
+
+# --- Python, only when it is not on PATH as python3, python or py ---
+# Empty on a Mac. On Windows the installer writes the full path here when it had to install
+# Python itself (the new install is not on PATH until Claude Code restarts), in C:/... form.
+PYTHON_BIN="${PYTHON_BIN:-}"
 
 # =====================================================================================
 # OWNED_PATHS — the only paths this pipeline may COMMIT.

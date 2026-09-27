@@ -1,0 +1,5 @@
+# The transcript pipeline's scripts must keep LF endings, or bash cannot run them. This file
+# keeps the owner's own git from rewriting them with CRLF on Windows after a revert or a
+# stash pop. It covers this folder only and never touches the owner's root settings.
+*.sh text eol=lf
+*.py text eol=lf

@@ -17,6 +17,7 @@ USAGE
     apply-to-vault.py <vault-path> [--check]
     --check reports what would change and writes nothing. Exit 0 if everything is in place.
 """
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -42,6 +43,9 @@ PAYLOAD = [
     # craft.md, and team.md's own rule is that a shelf with no named reader is a pile.
     "2-makers/vibecoder/refs/transcript-infrastructure.md",
     "2-makers/vibecoder/craft.md",
+    # Keeps the owner's own git from checking the scripts out with CRLF on Windows after a
+    # revert or a stash pop. Scoped to .claude/scripts/, never the owner's root settings.
+    ".claude/scripts/.gitattributes",
 ]
 
 # ---------------------------------------------------------------------------
@@ -66,6 +70,22 @@ SCRIPTS = [
     "empty-register.py",
     "config.example.sh",
 ]
+
+# The Windows scheduler (Task Scheduler instead of launchd). Copied only on Windows, so a Mac
+# vault receives exactly the files it always did. It lands at .claude/scripts/windows/, and
+# that copy is the owner's off switch once the cloned kit is deleted.
+WINDOWS_SCRIPTS = [
+    "windows/schedule.ps1",
+]
+if os.name == "nt":
+    SCRIPTS = SCRIPTS + WINDOWS_SCRIPTS
+
+
+def write_lf(path, text):
+    """Write text with LF endings on every OS. Writing in text mode on Windows turns every \n
+    into \r\n, which rewrites every line of the owner's files in the install commit and
+    turns its revert into a whole-file revert. On a Mac this writes the same bytes as before."""
+    path.write_bytes(text.encode("utf-8"))
 
 # ---------------------------------------------------------------------------
 # The four edits. Each is (path, anchor, insertion, marker).
@@ -298,6 +318,14 @@ def preflight_edits(vault):
 
 
 def main(argv):
+    # On Windows a piped stdout uses the local code page, and printing a vault path with Hebrew
+    # in it would crash the run halfway. UTF-8 there; nothing changes on a Mac.
+    if os.name == "nt":
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (AttributeError, ValueError):
+                pass
     if len(argv) < 2:
         print(__doc__.strip(), file=sys.stderr)
         return 2
@@ -376,7 +404,7 @@ def main(argv):
         changed += 1
         print("  ~ reword: 2-makers/vibecoder/vibecoder.md (it was told it has no craft file)")
         if not check:
-            vp.write_text(vt.replace(VIBECODER_CRAFT_FROM, VIBECODER_CRAFT_TO, 1), encoding="utf-8")
+            write_lf(vp, vt.replace(VIBECODER_CRAFT_FROM, VIBECODER_CRAFT_TO, 1))
     elif VIBECODER_CRAFT_TO not in vt:
         print("ERROR: neither wording found in vibecoder.md", file=sys.stderr)
         return 1
@@ -388,7 +416,7 @@ def main(argv):
             changed += 1
             print(f"  ~ reword: {rel} (it counted three craft files, there are four)")
             if not check:
-                cp.write_text(ct.replace(before, after, 1), encoding="utf-8")
+                write_lf(cp, ct.replace(before, after, 1))
         elif after not in ct:
             print(f"ERROR: neither craft count found in {rel}", file=sys.stderr)
             return 1
@@ -399,7 +427,7 @@ def main(argv):
         changed += 1
         print("  ~ reword: .claude/skills/absorb-the-owner/SKILL.md (its trigger claimed transcripts)")
         if not check:
-            ap.write_text(at.replace(ABSORB_OWNER_FROM, ABSORB_OWNER_TO, 1), encoding="utf-8")
+            write_lf(ap, at.replace(ABSORB_OWNER_FROM, ABSORB_OWNER_TO, 1))
     elif ABSORB_OWNER_TO not in at:
         print("ERROR: neither wording found in absorb-the-owner/SKILL.md", file=sys.stderr)
         return 1
@@ -413,7 +441,7 @@ def main(argv):
             print(f"ERROR: neither wording found in morty.md: {before[:50]}", file=sys.stderr)
             return 1
     if not check:
-        mp.write_text(mt, encoding="utf-8")
+        write_lf(mp, mt)
 
     # The scripts, from the kit's scripts/ into the vault's .claude/scripts/.
     kit_scripts = HERE.parent / "scripts"
@@ -455,7 +483,7 @@ def main(argv):
         changed += 1
         print(f"  ~ edit: {rel}")
         if not check:
-            path.write_text(new, encoding="utf-8")
+            write_lf(path, new)
 
     if check:
         print(f"\n{changed} change(s) outstanding." if changed else "\nEverything is already in place.")

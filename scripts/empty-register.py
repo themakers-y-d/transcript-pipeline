@@ -119,7 +119,8 @@ def read_register(path):
 
 def write_register(path, rows, order):
     tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
+    # newline="\n": bash reads this file, and Windows text mode would add \r to every line.
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
         for h in HEADER:
             f.write(h + "\n")
         for mid in order:
@@ -221,7 +222,7 @@ def cmd_update(register, under_floor_file, resolved_file, limit, warn_file):
         tmp = warn_file + ".tmp"
         try:
             os.makedirs(os.path.dirname(warn_file), exist_ok=True)
-            with open(tmp, "w", encoding="utf-8") as f:
+            with open(tmp, "w", encoding="utf-8", newline="\n") as f:
                 # An epoch of its own, so the reader can ignore a warning nobody refreshed.
                 f.write(f"warn={int(time.time())}\n{msg}\n")
             os.replace(tmp, warn_file)
@@ -241,6 +242,12 @@ def cmd_update(register, under_floor_file, resolved_file, limit, warn_file):
 
 
 def main(argv):
+    # `blips` prints ids into a bash pipe. On Windows print() would end each with \r\n, and a
+    # retired blip would then never be excluded again. No-op on a Mac (Python 3.7+).
+    try:
+        sys.stdout.reconfigure(newline="\n")
+    except (AttributeError, ValueError):
+        pass
     if len(argv) >= 3 and argv[1] == "blips":
         return cmd_blips(argv[2])
     if len(argv) == 7 and argv[1] == "update":

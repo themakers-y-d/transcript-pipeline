@@ -55,19 +55,55 @@ if [ ! -f "$SCRIPT_DIR/config.sh" ]; then
   echo "ERROR: $SCRIPT_DIR/config.sh not found. Copy config.example.sh to config.sh and fill it in." >&2
   exit 1
 fi
+# --- Windows (Git Bash) default, set BEFORE config.sh so a value written there still wins ---
+# There is no ~/Library/Logs on Windows. A no-op on a Mac, where uname says Darwin.
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    LOG_DIR="${LOG_DIR:-$(cygpath -m "${LOCALAPPDATA:-$HOME/AppData/Local}")/transcript-pipeline/logs}"
+    ;;
+esac
 # shellcheck source=/dev/null
 source "$SCRIPT_DIR/config.sh"
 
+# --- Windows: one path form, C:/Users/..., for every consumer ---
+# Git Bash says /c/Users/..., and the model's Write tool is handed these paths inside a prompt.
+# Every path below is derived from these two, so this is the only place the form is set.
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    SCRIPT_DIR="$(cygpath -m "$SCRIPT_DIR")"
+    VAULT="$(cygpath -m "$VAULT")"
+    export PYTHONUTF8=1
+    ;;
+esac
+LOG_DIR="${LOG_DIR:-$HOME/Library/Logs}"      # a config.sh from before LOG_DIR existed
+mkdir -p "$LOG_DIR" 2>/dev/null
+
+# --- the desktop notification. On a Mac this is the exact osascript line it always was. ---
+# On Windows a toast through Windows PowerShell 5.1; the same constant as the uploader's, and
+# the readable text is in scripts/windows/schedule.ps1. The words travel in the environment.
+TOAST_B64="JABtAD0AWwBXAGkAbgBkAG8AdwBzAC4AVQBJAC4ATgBvAHQAaQBmAGkAYwBhAHQAaQBvAG4AcwAuAFQAbwBhAHMAdABOAG8AdABpAGYAaQBjAGEAdABpAG8AbgBNAGEAbgBhAGcAZQByACwAVwBpAG4AZABvAHcAcwAuAFUASQAuAE4AbwB0AGkAZgBpAGMAYQB0AGkAbwBuAHMALABDAG8AbgB0AGUAbgB0AFQAeQBwAGUAPQBXAGkAbgBkAG8AdwBzAFIAdQBuAHQAaQBtAGUAXQA7ACAAJAB0AD0AJABtADoAOgBHAGUAdABUAGUAbQBwAGwAYQB0AGUAQwBvAG4AdABlAG4AdAAoAFsAVwBpAG4AZABvAHcAcwAuAFUASQAuAE4AbwB0AGkAZgBpAGMAYQB0AGkAbwBuAHMALgBUAG8AYQBzAHQAVABlAG0AcABsAGEAdABlAFQAeQBwAGUAXQA6ADoAVABvAGEAcwB0AFQAZQB4AHQAMAAyACkAOwAgACQAbgA9ACQAdAAuAEcAZQB0AEUAbABlAG0AZQBuAHQAcwBCAHkAVABhAGcATgBhAG0AZQAoACcAdABlAHgAdAAnACkAOwAgACQAbgB1AGwAbAA9ACQAbgAuAEkAdABlAG0AKAAwACkALgBBAHAAcABlAG4AZABDAGgAaQBsAGQAKAAkAHQALgBDAHIAZQBhAHQAZQBUAGUAeAB0AE4AbwBkAGUAKAAkAGUAbgB2ADoAVABQAF8AVABJAFQATABFACkAKQA7ACAAJABuAHUAbABsAD0AJABuAC4ASQB0AGUAbQAoADEAKQAuAEEAcABwAGUAbgBkAEMAaABpAGwAZAAoACQAdAAuAEMAcgBlAGEAdABlAFQAZQB4AHQATgBvAGQAZQAoACQAZQBuAHYAOgBUAFAAXwBNAFMARwApACkAOwAgACQAbQA6ADoAQwByAGUAYQB0AGUAVABvAGEAcwB0AE4AbwB0AGkAZgBpAGUAcgAoACcAewAxAEEAQwAxADQARQA3ADcALQAwADIARQA3AC0ANABFADUARAAtAEIANwA0ADQALQAyAEUAQgAxAEEARQA1ADEAOQA4AEIANwB9AFwAVwBpAG4AZABvAHcAcwBQAG8AdwBlAHIAUwBoAGUAbABsAFwAdgAxAC4AMABcAHAAbwB3AGUAcgBzAGgAZQBsAGwALgBlAHgAZQAnACkALgBTAGgAbwB3ACgAWwBXAGkAbgBkAG8AdwBzAC4AVQBJAC4ATgBvAHQAaQBmAGkAYwBhAHQAaQBvAG4AcwAuAFQAbwBhAHMAdABOAG8AdABpAGYAaQBjAGEAdABpAG8AbgBdADoAOgBuAGUAdwAoACQAdAApACkA"
+notify() {  # $1 = title, $2 = message
+  case "$(uname -s)" in
+    Darwin)
+      osascript -e "display notification \"$2\" with title \"$1\" sound name \"Basso\"" 2>/dev/null || true ;;
+    MINGW*|MSYS*|CYGWIN*)
+      TP_TITLE="$1" TP_MSG="$2" powershell.exe -NoProfile -NonInteractive -EncodedCommand "$TOAST_B64" >/dev/null 2>&1 || true ;;
+  esac
+}
+
 STATE_FILE="$SCRIPT_DIR/absorber-state.txt"
 HEARTBEAT_FILE="$SCRIPT_DIR/absorber-heartbeat.txt"     # read at session open
-HEALTH_FILE="$HOME/Library/Logs/${LABEL_PREFIX}-absorber.health"
+HEALTH_FILE="$LOG_DIR/${LABEL_PREFIX}-absorber.health"
 TODAY="$(date '+%F')"
 NOW_HHMM="$(date '+%H%M')"
 
 # --- resolve the claude binary (the VS Code extension path changes on every update) ---
-CLAUDE_BIN="$(ls -d "$HOME"/.vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude 2>/dev/null | sort -V | tail -1)"
+# On Windows the same places end in claude.exe, and PATH is the last resort. Both only matter
+# when every Mac candidate has already missed.
+CLAUDE_BIN="$(ls -d "$HOME"/.vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude{,.exe} 2>/dev/null | sort -V | tail -1)"
 if [ -z "${CLAUDE_BIN:-}" ] || [ ! -x "$CLAUDE_BIN" ]; then
-  for alt in "$HOME/.local/bin/claude" /opt/homebrew/bin/claude /usr/local/bin/claude; do
+  for alt in "$HOME/.local/bin/claude" /opt/homebrew/bin/claude /usr/local/bin/claude \
+             "$HOME/.local/bin/claude.exe" "$(command -v claude 2>/dev/null)"; do
     [ -x "$alt" ] && CLAUDE_BIN="$alt" && break
   done
 fi
@@ -129,7 +165,8 @@ snapshot_worktree() {
     git -C "$VAULT" -c core.quotepath=false ls-files --others --exclude-standard
   } 2>/dev/null | sort -u | while IFS= read -r p; do
     [ -n "$p" ] || continue
-    h="$(shasum -a 1 "$VAULT/$p" 2>/dev/null | cut -d' ' -f1)"
+    # sha1sum only when shasum is missing, which Git for Windows may be. Same hash either way.
+    h="$( { shasum -a 1 "$VAULT/$p" 2>/dev/null || sha1sum "$VAULT/$p" 2>/dev/null; } | cut -d' ' -f1)"
     printf '%s\t%s\n' "${h:-gone}" "$p"
   done
 }
@@ -382,8 +419,9 @@ fi
 
 # --- record finished ids, OUTSIDE the model ---
 RECORDED=0
-FAILED="$(grep -m1 '^TRANSCRIPT_RESULT' "$RUN_OUT" | sed -n 's/.*failed=\([0-9]*\).*/\1/p')"
-ABSORBED_N="$(grep -m1 '^TRANSCRIPT_RESULT' "$RUN_OUT" | sed -n 's/.*absorbed=\([0-9]*\).*/\1/p')"
+# tr -d '\r' in case the CLI wrote Windows line endings; on a Mac it changes nothing.
+FAILED="$(grep -m1 '^TRANSCRIPT_RESULT' "$RUN_OUT" | tr -d '\r' | sed -n 's/.*failed=\([0-9]*\).*/\1/p')"
+ABSORBED_N="$(grep -m1 '^TRANSCRIPT_RESULT' "$RUN_OUT" | tr -d '\r' | sed -n 's/.*absorbed=\([0-9]*\).*/\1/p')"
 # The per-run cap lives inside the prompt, so it is a request and not a gate: bash
 # cannot enforce it, because only the model can see the Drive folder. What bash CAN
 # do is refuse to let an overrun look like obedience. Without this line, a run that
@@ -393,7 +431,7 @@ if [ -n "${ABSORBED_N:-}" ] && [ "${ABSORBED_N:-0}" -gt "${MAX_NEW_PER_RUN_ABSOR
   echo "$(date '+%F %T') WARNING absorbed=$ABSORBED_N is over the cap of $MAX_NEW_PER_RUN_ABSORB. The cap is an instruction to the model, not a gate, and this run did not honour it. Read the dated report before trusting it; the undo line below reverses the whole run."
 fi
 if [ "$RC" -eq 0 ]; then
-  DONE_IDS="$(grep -m1 '^TRANSCRIPT_DONE_IDS' "$RUN_OUT" | sed 's/^TRANSCRIPT_DONE_IDS//')"
+  DONE_IDS="$(grep -m1 '^TRANSCRIPT_DONE_IDS' "$RUN_OUT" | tr -d '\r' | sed 's/^TRANSCRIPT_DONE_IDS//')"
   for id in $DONE_IDS; do
     case "$id" in
       [A-Za-z0-9_-][A-Za-z0-9_-]*)
@@ -482,7 +520,7 @@ fi
 # --- item-level failures are surfaced, not buried in a green run ---
 if [ "$RC" -eq 0 ] && [ "${FAILED:-0}" -gt 0 ] 2>/dev/null; then
   echo "ITEM FAILURES: $(date '+%F %T')  failed=$FAILED  (a transcript could not be fully absorbed; check the stdout log)" >> "$HEARTBEAT_FILE"
-  osascript -e "display notification \"$FAILED תמלול לא נספג במלואו. בדוק את הלוג.\" with title \"צינור התמלולים\" sound name \"Basso\"" 2>/dev/null || true
+  notify "צינור התמלולים" "$FAILED תמלול לא נספג במלואו. בדוק את הלוג."
 fi
 
 if [ "$RC" -eq 0 ]; then
@@ -491,7 +529,7 @@ else
   echo "FAIL $(date '+%F %T') rc=$RC restore_point=$RESTORE_POINT" > "$HEALTH_FILE"
   # FAIL LOUD. A silent failure looks exactly like "no new transcripts", which is how a
   # pipeline like this dies without anyone noticing for weeks.
-  osascript -e 'display notification "הריצה נכשלה. התמלולים של היום לא נספגו." with title "צינור התמלולים" sound name "Basso"' 2>/dev/null || true
+  notify "צינור התמלולים" "הריצה נכשלה. התמלולים של היום לא נספגו."
 fi
 
 echo "$(date '+%F %T') ${LABEL_PREFIX}-absorber finished rc=$RC"

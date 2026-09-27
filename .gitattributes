@@ -1,0 +1,11 @@
+# Line endings are part of what makes this kit run. Git for Windows checks text out with
+# CRLF by default, and bash then dies on the first line of every script ($'\r': command not
+# found), and config.sh carries a \r into every value. These rules pin the endings for every
+# checkout on every machine. The repo already stores LF, so on a Mac nothing changes.
+* text=auto
+*.sh        text eol=lf
+*.py        text eol=lf
+*.template  text eol=lf
+*.plist     text eol=lf
+*.ps1       text eol=crlf
+*.md        text eol=lf

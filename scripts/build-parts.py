@@ -156,7 +156,10 @@ def main():
         print(f"cannot read worklist.txt: {e}", file=sys.stderr)
         return 2
 
-    manifest = open(os.path.join(staging, "upload-manifest.tsv"), "w", encoding="utf-8")
+    # newline="\n" on every file bash reads back. On Windows, text mode would write \r\n, and
+    # bash's exact-match reads (grep -qxF, read -r) would then never match an id again.
+    # On a Mac it writes the same bytes it always did.
+    manifest = open(os.path.join(staging, "upload-manifest.tsv"), "w", encoding="utf-8", newline="\n")
     under_floor = []
     for mid in worklist:
         # Two different statements from the fetch phase, deliberately kept apart:
@@ -243,11 +246,11 @@ def main():
                 doc_title += f" (חלק {i} מתוך {P})"
 
             part_path = os.path.join(staging, f"part-{mid}-{i:02d}-of-{P:02d}.txt")
-            with open(part_path, "w", encoding="utf-8") as f:
+            with open(part_path, "w", encoding="utf-8", newline="\n") as f:
                 f.write(doc)
             manifest.write(f"{mid}\t{part_path}\t{doc_title}\n")
 
-        with open(os.path.join(staging, f"parts-{mid}.count"), "w", encoding="utf-8") as f:
+        with open(os.path.join(staging, f"parts-{mid}.count"), "w", encoding="utf-8", newline="\n") as f:
             f.write(str(P))
         print(f"OK {mid} {P} chars={len(body)}{stamp_note}")
 
@@ -255,7 +258,7 @@ def main():
     # Written unconditionally, so an empty file means "measured, nothing under the floor" and a
     # MISSING file means "this script did not get that far". The caller must be able to tell
     # those apart, because reading the second as the first would quietly suppress a real failure.
-    with open(os.path.join(staging, "under-floor-ids.txt"), "w", encoding="utf-8") as f:
+    with open(os.path.join(staging, "under-floor-ids.txt"), "w", encoding="utf-8", newline="\n") as f:
         for mid in under_floor:
             f.write(mid + "\n")
     return 0

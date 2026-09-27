@@ -84,14 +84,52 @@ if [ ! -f "$SCRIPT_DIR/config.sh" ]; then
   echo "ERROR: $SCRIPT_DIR/config.sh not found. Copy config.example.sh to config.sh and fill it in." >&2
   exit 1
 fi
+# --- Windows (Git Bash) defaults, set BEFORE config.sh so a value written there still wins ---
+# LOG_DIR: there is no ~/Library/Logs on Windows. CHUNK_CHAR_LIMIT: Windows caps one command
+# line at 32,767 characters and the upload prompt carries a whole part, so 40000 cannot launch
+# there. Both are no-ops on a Mac, where uname says Darwin.
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    LOG_DIR="${LOG_DIR:-$(cygpath -m "${LOCALAPPDATA:-$HOME/AppData/Local}")/transcript-pipeline/logs}"
+    CHUNK_CHAR_LIMIT="${CHUNK_CHAR_LIMIT:-24000}"
+    ;;
+esac
 # shellcheck source=/dev/null
 source "$SCRIPT_DIR/config.sh"
+
+# --- Windows: one path form, C:/Users/..., for every consumer ---
+# Git Bash says /c/Users/..., which bash understands and a native program handed the path
+# inside a prompt may not. Every path below is derived from these two, so this is the only
+# place the form is set. PYTHONUTF8 keeps Python's Hebrew output from dying on a code page.
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    SCRIPT_DIR="$(cygpath -m "$SCRIPT_DIR")"
+    VAULT="$(cygpath -m "$VAULT")"
+    export PYTHONUTF8=1
+    ;;
+esac
+LOG_DIR="${LOG_DIR:-$HOME/Library/Logs}"      # a config.sh from before LOG_DIR existed
+mkdir -p "$LOG_DIR" 2>/dev/null
+
+# --- the desktop notification. On a Mac this is the exact osascript line it always was. ---
+# On Windows a toast through Windows PowerShell 5.1. The script is a constant (base64 of
+# UTF-16LE, see scripts/windows/schedule.ps1 for the readable text) and the words travel in
+# environment variables, so no Hebrew and no quote ever passes through a command line.
+TOAST_B64="JABtAD0AWwBXAGkAbgBkAG8AdwBzAC4AVQBJAC4ATgBvAHQAaQBmAGkAYwBhAHQAaQBvAG4AcwAuAFQAbwBhAHMAdABOAG8AdABpAGYAaQBjAGEAdABpAG8AbgBNAGEAbgBhAGcAZQByACwAVwBpAG4AZABvAHcAcwAuAFUASQAuAE4AbwB0AGkAZgBpAGMAYQB0AGkAbwBuAHMALABDAG8AbgB0AGUAbgB0AFQAeQBwAGUAPQBXAGkAbgBkAG8AdwBzAFIAdQBuAHQAaQBtAGUAXQA7ACAAJAB0AD0AJABtADoAOgBHAGUAdABUAGUAbQBwAGwAYQB0AGUAQwBvAG4AdABlAG4AdAAoAFsAVwBpAG4AZABvAHcAcwAuAFUASQAuAE4AbwB0AGkAZgBpAGMAYQB0AGkAbwBuAHMALgBUAG8AYQBzAHQAVABlAG0AcABsAGEAdABlAFQAeQBwAGUAXQA6ADoAVABvAGEAcwB0AFQAZQB4AHQAMAAyACkAOwAgACQAbgA9ACQAdAAuAEcAZQB0AEUAbABlAG0AZQBuAHQAcwBCAHkAVABhAGcATgBhAG0AZQAoACcAdABlAHgAdAAnACkAOwAgACQAbgB1AGwAbAA9ACQAbgAuAEkAdABlAG0AKAAwACkALgBBAHAAcABlAG4AZABDAGgAaQBsAGQAKAAkAHQALgBDAHIAZQBhAHQAZQBUAGUAeAB0AE4AbwBkAGUAKAAkAGUAbgB2ADoAVABQAF8AVABJAFQATABFACkAKQA7ACAAJABuAHUAbABsAD0AJABuAC4ASQB0AGUAbQAoADEAKQAuAEEAcABwAGUAbgBkAEMAaABpAGwAZAAoACQAdAAuAEMAcgBlAGEAdABlAFQAZQB4AHQATgBvAGQAZQAoACQAZQBuAHYAOgBUAFAAXwBNAFMARwApACkAOwAgACQAbQA6ADoAQwByAGUAYQB0AGUAVABvAGEAcwB0AE4AbwB0AGkAZgBpAGUAcgAoACcAewAxAEEAQwAxADQARQA3ADcALQAwADIARQA3AC0ANABFADUARAAtAEIANwA0ADQALQAyAEUAQgAxAEEARQA1ADEAOQA4AEIANwB9AFwAVwBpAG4AZABvAHcAcwBQAG8AdwBlAHIAUwBoAGUAbABsAFwAdgAxAC4AMABcAHAAbwB3AGUAcgBzAGgAZQBsAGwALgBlAHgAZQAnACkALgBTAGgAbwB3ACgAWwBXAGkAbgBkAG8AdwBzAC4AVQBJAC4ATgBvAHQAaQBmAGkAYwBhAHQAaQBvAG4AcwAuAFQAbwBhAHMAdABOAG8AdABpAGYAaQBjAGEAdABpAG8AbgBdADoAOgBuAGUAdwAoACQAdAApACkA"
+notify() {  # $1 = title, $2 = message
+  case "$(uname -s)" in
+    Darwin)
+      osascript -e "display notification \"$2\" with title \"$1\" sound name \"Basso\"" 2>/dev/null || true ;;
+    MINGW*|MSYS*|CYGWIN*)
+      TP_TITLE="$1" TP_MSG="$2" powershell.exe -NoProfile -NonInteractive -EncodedCommand "$TOAST_B64" >/dev/null 2>&1 || true ;;
+  esac
+}
 
 STATE_FILE="$SCRIPT_DIR/uploader-state.txt"
 EMPTY_REGISTER="$SCRIPT_DIR/uploader-empty.txt"          # meetings whose body came back under the floor
 HEARTBEAT_FILE="$SCRIPT_DIR/uploader-heartbeat.txt"      # read at session open
-HEALTH_FILE="$HOME/Library/Logs/${LABEL_PREFIX}-uploader.health"
-WARN_FILE="$HOME/Library/Logs/${LABEL_PREFIX}-uploader.warn"
+HEALTH_FILE="$LOG_DIR/${LABEL_PREFIX}-uploader.health"
+WARN_FILE="$LOG_DIR/${LABEL_PREFIX}-uploader.warn"
 REGISTER_TOOL="$SCRIPT_DIR/empty-register.py"
 BUILDER="$SCRIPT_DIR/build-parts.py"
 # Staging deliberately does NOT live under .claude/. Claude Code protects the agent
@@ -109,9 +147,12 @@ RC=0
 FLOOR="${MIN_TRANSCRIPT_CHARS:-600}"
 
 # --- resolve the claude binary (the VS Code extension path changes on every update) ---
-CLAUDE_BIN="$(ls -d "$HOME"/.vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude 2>/dev/null | sort -V | tail -1)"
+# On Windows the same places end in claude.exe, and PATH is the last resort. Both only matter
+# when every Mac candidate has already missed.
+CLAUDE_BIN="$(ls -d "$HOME"/.vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude{,.exe} 2>/dev/null | sort -V | tail -1)"
 if [ -z "${CLAUDE_BIN:-}" ] || [ ! -x "$CLAUDE_BIN" ]; then
-  for alt in "$HOME/.local/bin/claude" /opt/homebrew/bin/claude /usr/local/bin/claude; do
+  for alt in "$HOME/.local/bin/claude" /opt/homebrew/bin/claude /usr/local/bin/claude \
+             "$HOME/.local/bin/claude.exe" "$(command -v claude 2>/dev/null)"; do
     [ -x "$alt" ] && CLAUDE_BIN="$alt" && break
   done
 fi
@@ -119,6 +160,20 @@ if [ -z "${CLAUDE_BIN:-}" ] || [ ! -x "$CLAUDE_BIN" ]; then
   echo "$(date '+%F %T') ERROR: claude CLI not found, uploader skipped" >&2
   echo "FAIL $(date '+%F %T') claude-cli-not-found" > "$HEALTH_FILE"
   exit 1
+fi
+
+# --- resolve Python 3 once ---
+# python3 first, so a Mac runs exactly the interpreter it always ran. On Windows python3 is
+# usually the Microsoft Store stub, which fails this probe and is skipped; python or the py
+# launcher is the real one. PYTHON_BIN in config.sh pins it when the installer found it by path.
+PY=""
+for c in "${PYTHON_BIN:-}" python3 python py; do
+  [ -n "$c" ] || continue
+  if "$c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then PY="$c"; break; fi
+done
+if [ -z "$PY" ]; then
+  echo "$(date '+%F %T') ERROR: no working Python 3 found (python3, python, py). On Windows install it with: winget install -e --id Python.Python.3.12 --scope user" >&2
+  PY=python3
 fi
 
 # --- first run: create the state file ---
@@ -141,7 +196,7 @@ if [ "$STATE_IDS" -eq 0 ] && [ "${ALLOW_EMPTY_STATE:-0}" != "1" ]; then
   echo "$(date '+%F %T') ERROR: the state file holds no ids. Refusing to run, because every meeting would look new and be uploaded again. Restore $STATE_FILE, or rerun with ALLOW_EMPTY_STATE=1 if this really is a first sync." >&2
   echo "FAIL $(date '+%F %T') empty-state-file" > "$HEALTH_FILE"
   echo "LAST RUN FAILED: $(date '+%F %T')  rc=3  empty-state-file" >> "$HEARTBEAT_FILE"
-  osascript -e 'display notification "קובץ המעקב של מעלה התמלולים ריק. הריצה נעצרה כדי שלא יעלה הכל מחדש." with title "צינור התמלולים" sound name "Basso"' 2>/dev/null || true
+  notify "צינור התמלולים" "קובץ המעקב של מעלה התמלולים ריק. הריצה נעצרה כדי שלא יעלה הכל מחדש."
   exit 3
 fi
 
@@ -244,14 +299,15 @@ if [ "$RC" -eq 0 ]; then
   # was uploaded" and a retired blip was not. Two lists, two meanings, no lie in either.
   : > "$STAGING/blip-ids.txt"
   if [ -f "$REGISTER_TOOL" ]; then
-    /usr/bin/env python3 "$REGISTER_TOOL" blips "$EMPTY_REGISTER" 2>/dev/null | sort -u > "$STAGING/blip-ids.txt" || : > "$STAGING/blip-ids.txt"
+    "$PY" "$REGISTER_TOOL" blips "$EMPTY_REGISTER" 2>/dev/null | tr -d '\r' | sort -u > "$STAGING/blip-ids.txt" || : > "$STAGING/blip-ids.txt"
   else
     echo "$(date '+%F %T') WARN: $REGISTER_TOOL is missing, so no meeting is excluded as a retired blip and empty recordings will be fetched again tonight." >&2
   fi
   BLIP_N="$(wc -l < "$STAGING/blip-ids.txt" | tr -d ' ')"
   sort -u "$STAGING/state-ids.txt" "$STAGING/blip-ids.txt" > "$STAGING/exclude-ids.txt"
   # Only meetings that actually have a transcript are candidates.
-  awk -F'\t' '$3=="true"{print $1}' "$STAGING/meetings.tsv" | sort -u > "$STAGING/source-ids.txt"
+  # The \r strip is for a file written with Windows line endings; on a Mac it matches nothing.
+  awk -F'\t' '{sub(/\r$/,"")} $3=="true"{print $1}' "$STAGING/meetings.tsv" | sort -u > "$STAGING/source-ids.txt"
   # A REAL set difference against the whole account, not against a window of the newest 25.
   # This single line is what makes a meeting that failed twelve nights running still eligible
   # on the thirteenth, and it is also what makes a double upload structurally impossible.
@@ -387,7 +443,7 @@ fi
 # =====================================================================================
 if [ "$WORK_N" -gt 0 ]; then
   echo "$(date '+%F %T') building documents (split at $CHUNK_CHAR_LIMIT characters, at line breaks only; floor $FLOOR characters, zone $TIMEZONE)"
-  /usr/bin/env python3 "$BUILDER" "$STAGING" "$CHUNK_CHAR_LIMIT" "$FLOOR" "$TIMEZONE" | sed 's/^/    /'
+  "$PY" "$BUILDER" "$STAGING" "$CHUNK_CHAR_LIMIT" "$FLOOR" "$TIMEZONE" | sed 's/^/    /'
 fi
 
 # =====================================================================================
@@ -430,7 +486,7 @@ Nothing else, either way."
   "$CLAUDE_BIN" -p "$prompt" \
     --allowedTools "${DRIVE_TOOL_PREFIX}create_file" \
     --max-turns 8 > "$STAGING/log-upload-$(basename "$partfile" .txt).txt" 2>&1
-  grep -m1 -E '^(CREATED|FAILED) ' "$STAGING/log-upload-$(basename "$partfile" .txt).txt"
+  grep -m1 -E '^(CREATED|FAILED) ' "$STAGING/log-upload-$(basename "$partfile" .txt).txt" | tr -d '\r'
   return 0
 }
 
@@ -503,7 +559,7 @@ fi
 # cost a night's counting, and it must never take down a run that uploaded correctly.
 if [ -f "$REGISTER_TOOL" ]; then
   [ -f "$UF_LIST" ] || : > "$UF_LIST"
-  REG_OUT="$(/usr/bin/env python3 "$REGISTER_TOOL" update \
+  REG_OUT="$("$PY" "$REGISTER_TOOL" update \
       "$EMPTY_REGISTER" "$UF_LIST" "$STAGING/recorded-ids.txt" \
       "$EMPTY_RETRY_LIMIT" "$WARN_FILE" 2>&1)" \
     && printf '%s\n' "$REG_OUT" | sed 's/^/    /' \
@@ -550,7 +606,7 @@ if [ "$RC" -eq 0 ]; then
   echo "OK $(date '+%F %T') seen=$SEEN uploaded=$UPLOADED under_floor=$UNDER_FLOOR" > "$HEALTH_FILE"
 else
   echo "FAIL $(date '+%F %T') rc=$RC seen=$SEEN uploaded=$UPLOADED failed=$FAILED" > "$HEALTH_FILE"
-  osascript -e 'display notification "התמלולים של היום לא הועלו לתיקייה." with title "צינור התמלולים" sound name "Basso"' 2>/dev/null || true
+  notify "צינור התמלולים" "התמלולים של היום לא הועלו לתיקייה."
 fi
 
 echo "$(date '+%F %T') ${LABEL_PREFIX}-uploader finished rc=$RC"
