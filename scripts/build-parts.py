@@ -102,10 +102,31 @@ def split_body(body, limit):
     every extra part is one more document to duplicate when a retry re-uploads the meeting.
 
     A single line longer than the limit is emitted whole rather than cut. Overshooting the
-    limit is recoverable; cutting a speaker mid-sentence is not."""
+    limit is recoverable; cutting a speaker mid-sentence is not.
+
+    EXCEPT ON WINDOWS, where overshooting is NOT recoverable. There the part travels to the
+    uploader as one command-line argument, and a line longer than the Windows ceiling cannot
+    launch at all, so the meeting would fail every night forever. The uploader sets
+    TP_SPLIT_LONG_LINES=1 only on Windows, and then such a line is cut at its last space before
+    the limit and each piece becomes its own part. The pieces concatenate back to the line
+    exactly. Without the flag, which is every Mac, this function is what it always was."""
     lines = body.split("\n")
+    split_long = os.environ.get("TP_SPLIT_LONG_LINES") == "1"
     parts, cur, cur_len = [], [], 0
     for ln in lines:
+        if split_long and len(ln) > limit:
+            if cur:
+                parts.append("\n".join(cur))
+                cur, cur_len = [], 0
+            rest = ln
+            while len(rest) > limit:
+                cut = rest.rfind(" ", 0, limit) + 1          # keep the space with the first piece
+                if cut <= 0:
+                    cut = limit                              # no space at all: a hard cut
+                parts.append(rest[:cut])
+                rest = rest[cut:]
+            cur, cur_len = [rest], len(rest)
+            continue
         add = len(ln) + (1 if cur else 0)
         if cur and cur_len + add > limit:
             parts.append("\n".join(cur))

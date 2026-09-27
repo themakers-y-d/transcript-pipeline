@@ -95,6 +95,9 @@ case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*)
     LOG_DIR="${LOG_DIR:-$(cygpath -m "${LOCALAPPDATA:-$HOME/AppData/Local}")/transcript-pipeline/logs}"
     CHUNK_CHAR_LIMIT="${CHUNK_CHAR_LIMIT:-14000}"
+    # and one speaker turn longer than that is cut at a space too (build-parts.py), or it
+    # could never launch and the meeting would fail every night
+    export TP_SPLIT_LONG_LINES=1
     ;;
 esac
 # shellcheck source=/dev/null

@@ -127,13 +127,13 @@ jobs:
           echo "and through stdin, 40000 is no problem:"
           printf '%s' "$H40" | python -c "import sys; print(len(sys.stdin.read()))"
 
-      - name: "4 (+2). Full uploader and absorber runs with a stub claude, a Store-stub python3 first on PATH"
-        run: SUITE_FAKE_PY3=1 bash .github/portability/stub-suite.sh . "$(cygpath -u "$RUNNER_TEMP")/suite"
+      - name: "4 (+2). Full uploader and absorber runs with a stub claude, a Store-stub python3 first on PATH, from a folder with a space and Hebrew in its name"
+        run: SUITE_FAKE_PY3=1 bash .github/portability/stub-suite.sh . "$(cygpath -u "$RUNNER_TEMP")/תיקייה עם רווח/suite"
 
       - name: "7. Task Scheduler: install, status, run through the scheduler, uninstall"
         run: |
-          rm -f "$(cygpath -u "$RUNNER_TEMP")/suite/stub/fixtures/absorb-failed-1"
-          bash .github/portability/scheduler-check.sh "$(cygpath -u "$RUNNER_TEMP")/suite/vault" com.portability.transcript
+          rm -f "$(cygpath -u "$RUNNER_TEMP")/תיקייה עם רווח/suite/stub/fixtures/absorb-failed-1"
+          bash .github/portability/scheduler-check.sh "$(cygpath -u "$RUNNER_TEMP")/תיקייה עם רווח/suite/vault" com.portability.transcript
 
       - name: "8. apply-to-vault.py on a fixture MAKERS vault (LF kept, .gitattributes and schedule.ps1 land)"
         run: bash .github/portability/apply-check.sh "$(cygpath -u "$RUNNER_TEMP")/apply"
@@ -155,7 +155,7 @@ jobs:
         with:
           name: windows-suite-out
           path: |
-            ${{ runner.temp }}/suite/out
+            ${{ runner.temp }}/תיקייה עם רווח/suite/out
             ${{ runner.temp }}/apply
           if-no-files-found: ignore
 
@@ -175,7 +175,7 @@ jobs:
           for f in "$RUNNER_TEMP"/blocks/block*.sh; do out="$(bash "$f" 2>&1)"; echo "$(basename "$f"): [$out]"; [ -z "$out" ]; done
 
       - name: "4. Full uploader and absorber runs with a stub claude"
-        run: bash .github/portability/stub-suite.sh . "$RUNNER_TEMP/suite"
+        run: bash .github/portability/stub-suite.sh . "$RUNNER_TEMP/תיקייה עם רווח/suite"
 
       - name: "8. apply-to-vault.py on a fixture MAKERS vault"
         run: bash .github/portability/apply-check.sh "$RUNNER_TEMP/apply"

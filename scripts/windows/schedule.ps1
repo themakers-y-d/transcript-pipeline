@@ -57,6 +57,9 @@ param(
   [string]$LogonType = 'Interactive'
 )
 $ErrorActionPreference = 'Stop'
+# UTF-8 on the way out, so a vault path with Hebrew in it prints as Hebrew in the runs: line
+# instead of question marks. Harmless when there is no console.
+try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
 
 # From Git Bash an array arrives as one string, "08:30,22:40".
 $AbsorberTimes = @($AbsorberTimes | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })

@@ -73,6 +73,9 @@ line() { local n="$1" w="$2"; printf 'דובר %s: %s\n' "$n" "$w"; }
 { for i in $(seq 1 25); do line 1 "שיחה רגילה, שורה $i, עם לקוח שרוצה להבין את ההצעה והמחיר"; done; } > "$ROOT/fixtures/bodies/m-normal.txt"
 { for i in $(seq 1 18); do line 2 "פגישה בלי כותרת, שורה $i, על המשך העבודה והשלבים הבאים"; done; } > "$ROOT/fixtures/bodies/m-notitle.txt"
 printf 'דובר 1: בדיקה אחת שתיים\n' > "$ROOT/fixtures/bodies/m-short.txt"
+# one speaker turn of about 20000 characters with no line break: over the Windows ceiling on
+# its own, so on Windows it must be cut at a space, and on a Mac it stays one part
+{ printf 'דובר 1:'; for i in $(seq 1 2600); do printf ' מילה%s' "$i"; done; printf '\n'; } > "$ROOT/fixtures/bodies/m-oneline.txt"
 printf 'EMPTY\n' > "$ROOT/fixtures/bodies/m-empty.txt"
 {
   printf 'm-long%s2026-09-20T07:15:00Z%strue%sפגישת אסטרטגיה ארוכה\n' "$TAB" "$TAB" "$TAB"
@@ -81,6 +84,7 @@ printf 'EMPTY\n' > "$ROOT/fixtures/bodies/m-empty.txt"
   printf 'm-empty%s2026-09-21T11:00:00Z%strue%sהקלטה ריקה\n' "$TAB" "$TAB" "$TAB"
   printf 'm-notx%s2026-09-21T12:00:00Z%sfalse%sבלי תמלול\n' "$TAB" "$TAB" "$TAB"
   printf 'm-notitle%s2026-09-22T08:30:00Z%strue\n' "$TAB" "$TAB"
+  printf 'm-oneline%s2026-09-22T09:00:00Z%strue%sמונולוג ארוך\n' "$TAB" "$TAB" "$TAB"
 } > "$ROOT/fixtures/meetings.tsv"
 printf 'd-001%sתמלול א\nd-002%sתמלול ב\nd-003%sתמלול ג\n' "$TAB" "$TAB" "$TAB" > "$ROOT/fixtures/docs.txt"
 printf 'd-004\n' > "$ROOT/fixtures/absorb-done.txt"
@@ -156,18 +160,24 @@ check "U0 refuses an empty state file (rc 3)" '[ "$(rc U0)" = 3 ]'
 check "U0 wrote the FAIL health flag in LOG_DIR" 'grep -q "^FAIL .*empty-state-file" "$OUT/U0.health"'
 [ "$WIN" = 0 ] && check "U0 notified through osascript, same text as always" 'grep -q "display notification \"קובץ המעקב של מעלה התמלולים ריק. הריצה נעצרה כדי שלא יעלה הכל מחדש.\" with title \"צינור התמלולים\" sound name \"Basso\"" "$OUT/osascript.log"'
 for r in U1 U2 U3 U4 A0 A1 A2; do check "$r exits 0" '[ "$(rc '"$r"')" = 0 ]'; done
-check "U1 recorded exactly the three real meetings" '[ "$(grep -v "^#" "$OUT/uploader-state.txt" | tr -d "\r" | sort | tr "\n" " ")" = "m-long m-normal m-notitle " ]'
-check "U1 did not count an under-floor meeting as failed" 'grep -q "^last-successful-run: .*uploaded=3  under-floor=2" "$OUT/U1.heartbeat"'
+check "U1 recorded exactly the four real meetings" '[ "$(grep -v "^#" "$OUT/uploader-state.txt" | tr -d "\r" | sort | tr "\n" " ")" = "m-long m-normal m-notitle m-oneline " ]'
+check "U1 did not count an under-floor meeting as failed" 'grep -q "^last-successful-run: .*uploaded=4  under-floor=2" "$OUT/U1.heartbeat"'
 check "no uploaded title or body carries a CR" '! grep -q "<CR>\|has-CR" "$ROOT/log/uploads.tsv"'
 LONG_N="$(grep -c "פגישת אסטרטגיה ארוכה" "$ROOT/log/uploads.tsv")"
 LONG_P="$(grep -o "(חלק 1 מתוך [0-9]*)" "$ROOT/log/uploads.tsv" | head -1 | grep -o "[0-9]*)" | tr -d ")")"
 check "the long meeting uploaded as N parts, and N receipts matched (N=$LONG_N)" '[ -n "$LONG_P" ] && [ "$LONG_N" = "$LONG_P" ] && [ "$LONG_N" -ge 2 ]'
+ONE_N="$(grep -c "מונולוג ארוך" "$ROOT/log/uploads.tsv")"
+if [ "$WIN" = 1 ]; then
+  check "Windows: a 20000-character single line was cut at spaces into $ONE_N parts, all uploaded" '[ "$ONE_N" -ge 2 ]'
+else
+  check "Mac: a 20000-character single line stays one part, as it always did" '[ "$ONE_N" = 1 ]'
+fi
 check "the document time is local (07:15Z is 10:15 in Asia/Jerusalem)" 'grep -q "10:15 | פגישת אסטרטגיה ארוכה" "$ROOT/log/uploads.tsv"'
 check "a meeting with no title still got its own time (08:30Z is 11:30)" 'grep -q "11:30 | ללא נושא" "$ROOT/log/uploads.tsv"'
 check "under-floor register retired m-short and m-empty after three sightings" '[ "$(awk -F"\t" "\$2==\"blip\"{print \$1}" "$OUT/uploader-empty.txt" | tr -d "\r" | sort | tr "\n" " ")" = "m-empty m-short " ]'
 check "U4 fetched nothing (retired blips excluded from the worklist)" '[ "$(calls_between "$(cat "$OUT/U3.after-call")" "$(cat "$OUT/U4.after-call")" fetch)" = 0 ]'
 check "U4 says 2 retired as empty" 'grep -q "2 retired as empty" "$OUT/U4.log"'
-check "the uploader committed its own state once, by path" '[ "$(grep -c "^transcript uploader .*: 3 transcript(s) uploaded" "$OUT/git-log.txt")" = 1 ]'
+check "the uploader committed its own state once, by path" '[ "$(grep -c "^transcript uploader .*: 4 transcript(s) uploaded" "$OUT/git-log.txt")" = 1 ]'
 check "uploader health OK in LOG_DIR after U4" 'grep -q "^OK " "$OUT/U4.health"'
 check "uploader health FAIL after U5" 'grep -q "^FAIL .*rc=2" "$OUT/U5.health"'
 check "A0 seeded the three existing documents" '[ "$(grep -v "^#" "$OUT/absorber-state.txt" | tr -d "\r" | head -3 | tr "\n" " ")" = "d-001 d-002 d-003 " ]'

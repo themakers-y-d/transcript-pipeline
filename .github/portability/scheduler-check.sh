@@ -18,7 +18,9 @@ attempt() {
   echo "=== install, LogonType $logon"
   sched -Action install -LabelPrefix "$LABEL" -ScriptsDir "$SD" -LogonType "$logon" || return 1
   echo "=== status"
-  sched -Action status -LabelPrefix "$LABEL" || return 1
+  sched -Action status -LabelPrefix "$LABEL" | tee "$LOGD/../status.txt" || return 1
+  # the runs: line must carry the vault path as it really is, Hebrew and spaces included
+  grep -qF "$SD" "$LOGD/../status.txt" || { echo "the runs: line does not show $SD"; return 1; }
   before="$(cat "$HB" 2>/dev/null)"
   echo "=== run -Job absorber"
   sched -Action run -LabelPrefix "$LABEL" -Job absorber || return 1
@@ -57,4 +59,4 @@ echo "=== notify-test (the toast call must not throw; whether it is SEEN needs a
 TP_TITLE="צינור התמלולים" TP_MSG="בדיקה" sched -Action notify-test; nrc=$?
 
 echo "SCHEDULER: ran via ${RESULT:-NOTHING}; uninstall rc=$urc; status-after rc=$src; notify-test rc=$nrc"
-[ -n "$RESULT" ] && [ "$urc" = 0 ] && [ "$src" != 0 ]
+[ -n "$RESULT" ] && [ "$urc" = 0 ] && [ "$src" != 0 ] && [ "$nrc" = 0 ]

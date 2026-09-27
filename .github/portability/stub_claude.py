@@ -64,14 +64,14 @@ def main():
             return f.read()
 
     if phase == "enum-meetings":
-        out = re.search(r"write the file (\S+meetings\.tsv)", prompt).group(1)
+        out = re.search(r"write the file (.+?meetings\.tsv)", prompt).group(1)
         with open(out, "w", encoding="utf-8") as f:          # platform text mode, on purpose
             f.write(fixture("meetings.tsv"))
         print("ENUM_DONE")
 
     elif phase == "fetch":
         mid = re.search(r"The meeting id is: (\S+)", prompt).group(1)
-        staging = re.search(r"(\S+)/body-" + re.escape(mid) + r"-p001\.txt", prompt).group(1)
+        staging = re.search(r"^\s+(.+?)/body-" + re.escape(mid) + r"-p001\.txt", prompt, re.M).group(1)
         body = fixture(os.path.join("bodies", mid + ".txt"))
         if body.strip() == "EMPTY":
             with open(os.path.join(staging, "empty-%s.txt" % mid), "w", encoding="utf-8") as f:
@@ -103,7 +103,7 @@ def main():
         print("CREATED doc-%03d" % n)
 
     elif phase == "enum-docs":
-        out = re.search(r"write the file (\S+docs\.txt)", prompt).group(1)
+        out = re.search(r"write the file (.+?docs\.txt)", prompt).group(1)
         with open(out, "w", encoding="utf-8") as f:
             f.write(fixture("docs.txt"))
         print("ENUM_DONE pages=1")
