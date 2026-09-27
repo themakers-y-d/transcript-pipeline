@@ -80,6 +80,12 @@ winget install -e --id Git.Git --accept-source-agreements --accept-package-agree
 
 ואז ודא שהיא ריפו גיט. אם לא, הסבר לו במשפט אחד שאתה מדליק לו כפתור ביטול, **ושזה לא משנה אף קובץ שלו ולא נראה לו בכלל על המסך**, והרץ `git init` שם. ⛔ **ומכאן והלאה קרא לזה 'הביטול שהדלקנו בהתחלה' ולא בשם חדש.** מונח חדש בשלב מאוחר נשמע לו כמו דבר שקרה לתיקייה שלו בלי שביקש, והוא עוצר עליו. הסופג מסרב לרוץ בלי גיט, כי בלי נקודת שחזור אין דרך בטוחה לכתוב לקבצים שלו לבד.
 
+**בווינדוס, מיד אחרי זה:** Git שהותקן זה עתה לא יודע בשם מי לחתום על קומיט, ואז כל קומיט נכשל, גם זה של שלב 3 וגם של הריצות הליליות. הבלוק נותן לו שם, רק אם אין כבר, ומדפיס אותו. במק הוא לא עושה כלום:
+
+```bash
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) git config --global user.email >/dev/null 2>&1 || { git config --global user.name "$USERNAME"; git config --global user.email "$USERNAME@localhost"; }; git config --global user.name ;; esac
+```
+
 אם התיקייה שנפתחה בבירור אינה מתאימה (תיקיית הורדות, שולחן העבודה עצמו, תיקיית מערכת), אל תריץ שם `git init`. תיקייה ייעודית שהוא יצר בשביל זה מתאימה, גם אם היא יושבת על שולחן העבודה. אם היא בתוך OneDrive או iCloud, זה עניין של האזהרה שמתחת ולא סיבה לעצור. עצור, הסבר בשורה אחת, ובקש ממנו לפתוח תיקייה ייעודית או לאשר לך ליצור אחת.
 
 **ואזהרה אחת שקל לפספס:** אם התיקייה יושבת בתוך iCloud Drive, OneDrive, Dropbox או Google Drive מסונכרן, אמור לזה בקול. בווינדוס שולחן העבודה והמסמכים יושבים הרבה פעמים בתוך OneDrive בלי שהבעלים יודע: נתיב שמכיל `OneDrive` הוא הסימן, ובמק זה נתיב שמכיל `Library/Mobile Documents`. ריפו גיט בתוך תיקיית סנכרון מייצר קונפליקטים ושחיתות אינדקס, והמערכת הזאת כותבת לשם כל בוקר. לו אתה אומר את זה, ובניסוח הזה: "שנייה לפני שממשיכים. התיקייה הזאת יושבת בתוך [iCloud או OneDrive], והיא מסתנכרנת כל הזמן ברקע. המערכת הזאת כותבת לתיקייה כל בוקר, ושני הדברים האלה רבים ביניהם ומקלקלים קבצים. אני ממליץ שנשים אותה ישר על המחשב ולא בתוך [iCloud או OneDrive]. רוצה שאעביר?" בסוגריים המרובעים אמור את השם שמצאת בנתיב: iCloud במק, OneDrive בווינדוס. וחכה לתשובה. אם הוא בוחר להשאיר, המשך ואל תחזור על האזהרה.
@@ -90,7 +96,7 @@ winget install -e --id Git.Git --accept-source-agreements --accept-package-agree
 
 ורק אז שלח לו את `xcode-select --install` לבדה. חכה שיסיים ובדוק שוב.
 
-**בווינדוס:** הבינארי הוא `claude.exe`, באותם מקומות: `~/.local/bin/claude.exe`, או תחת `~/.vscode/extensions/anthropic.claude-code-*/resources/native-binary/`, ואם אין שם, `command -v claude`. הסקריפטים מחפשים בדיוק כך. `git --version` כבר עונה, אחרת לא היית מגיע לכאן. ⛔ **ופייתון: אל תסמוך על `python3`.** בווינדוס הוא כמעט תמיד קיצור דרך לחנות של מיקרוסופט, שמדפיס Python was not found ויוצא, ובלעדיו המעלה נכשל כל לילה בלי שהשגיאה תרמוז על פייתון. מצא פייתון אמיתי כך. כל בלוק בווינדוס בקובץ הזה עטוף בבדיקה של מערכת ההפעלה, כך שבמק הוא לא עושה כלום:
+**בווינדוס:** הבינארי הוא `claude.exe`, באותם מקומות: `~/.local/bin/claude.exe`, או תחת `~/.vscode/extensions/anthropic.claude-code-*/resources/native-binary/`, ואם אין שם, `command -v claude`. הסקריפטים מחפשים בדיוק כך. `git --version` כבר עונה, אחרת לא היית מגיע לכאן. ⛔ **ופייתון: אל תסמוך על `python3`.** בווינדוס הוא כמעט תמיד קיצור דרך לחנות של מיקרוסופט, שמדפיס Python was not found ויוצא, ובלעדיו המעלה נכשל כל לילה בלי שהשגיאה תרמוז על פייתון. מצא פייתון אמיתי כך. כל בלוק באש של ווינדוס בקובץ הזה עטוף בבדיקה של מערכת ההפעלה, כך שבמק הוא לא עושה כלום. השורות היחידות שאינן עטופות הן שורות PowerShell: ההתקנה של Git בשלב 0, שרצה רק כשאין באש בכלל, והשורות שהבעלים מדביק בעצמו בחלון PowerShell.
 
 ```bash
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*)
@@ -111,7 +117,7 @@ esac
 
 ```bash
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*)
-  PY=""; for c in python3 python py "$(cygpath -m "$LOCALAPPDATA")/Programs/Python/Python312/python.exe"; do "$c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1 && { PY="$c"; break; }; done
+  PY=""; for c in python3 python py "$(cygpath -m "$LOCALAPPDATA")/Programs/Python/Python312/python.exe" "$(cygpath -m "$LOCALAPPDATA")/Programs/Python/Launcher/py.exe"; do "$c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1 && { PY="$c"; break; }; done
   "$PY" -m pip install --user tzdata
   "$PY" -c "import zoneinfo; print(zoneinfo.ZoneInfo('Asia/Jerusalem'))"
   cygpath -m "$(PYTHONUTF8=1 "$PY" -c 'import sys; print(sys.executable)' | tr -d '\r')" ;;
