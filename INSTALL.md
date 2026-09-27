@@ -114,7 +114,7 @@ case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*)
   PY=""; for c in python3 python py "$(cygpath -m "$LOCALAPPDATA")/Programs/Python/Python312/python.exe"; do "$c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1 && { PY="$c"; break; }; done
   "$PY" -m pip install --user tzdata
   "$PY" -c "import zoneinfo; print(zoneinfo.ZoneInfo('Asia/Jerusalem'))"
-  cygpath -m "$("$PY" -c 'import sys; print(sys.executable)' | tr -d '\r')" ;;
+  cygpath -m "$(PYTHONUTF8=1 "$PY" -c 'import sys; print(sys.executable)' | tr -d '\r')" ;;
 esac
 ```
 
@@ -190,7 +190,7 @@ claude mcp add --transport http --scope user wispr-flow https://api.wisprflow.ai
 - `REPORTS_DIR`: התיקייה, יחסית לשורש, שאליה נוחתים הדוחות ותיקיות העבודה הזמניות.
 - `OWNED_PATHS`: הנתיבים היחידים שהסופג רשאי לעשות עליהם קומיט. **אל תמלא אותו עכשיו** אלא בשלב 3, אחרי שתדע מה היעדים האמיתיים.
 - שאר הערכים: השאר בברירת המחדל אלא אם לבעלים יש סיבה לשנות.
-- **בווינדוס:** `VAULT` בצורה `C:/Users/...`, כלומר מה ש-`pwd -W` מדפיס בתיקיית הזיכרון. `PYTHON_BIN` עם הנתיב המלא, רק אם התקנת פייתון בעצמך בשלב 0ב. את `LOG_DIR` ואת `CHUNK_CHAR_LIMIT` אל תמלא: בווינדוס הסקריפטים קובעים אותם בעצמם, תיקיית לוגים תחת `LOCALAPPDATA` וחלקים של 14000 תווים, כי ווינדוס לא מעביר שורת פקודה ארוכה יותר.
+- **בווינדוס:** `VAULT` בצורה `C:/Users/...`, כלומר מה ש-`pwd -W` מדפיס בתיקיית הזיכרון. `PYTHON_BIN` עם הנתיב המלא, רק אם התקנת פייתון בעצמך בשלב 0ב. את `LOG_DIR` ואת `CHUNK_CHAR_LIMIT` אל תמלא, אלא אם שלב 8 מורה לכייל את `CHUNK_CHAR_LIMIT` כלפי מטה: בווינדוס הסקריפטים קובעים אותם בעצמם, תיקיית לוגים תחת `LOCALAPPDATA` וחלקים של 14000 תווים, כי ווינדוס לא מעביר שורת פקודה ארוכה יותר.
 
 הסבר לבעלים בשורה מה עשית: הקובץ הזה הוא רק הגדרות, בלי סודות.
 
