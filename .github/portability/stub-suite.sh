@@ -109,7 +109,7 @@ transcripts/reports/*
 EOF
 git -C "$V" init -q && git -C "$V" add -A && git -C "$V" commit -q -m "vault before the pipeline"
 
-up() { local name="$1"; shift; ( cd "$W" && env "$@" bash "$V/.claude/scripts/transcript-uploader.sh" ) > "$OUT/$name.log" 2>&1; echo $? > "$OUT/$name.rc"; cp "$ROOT/log/counter" "$OUT/$name.after-call" 2>/dev/null; cp "$V/.claude/scripts/uploader-heartbeat.txt" "$OUT/$name.heartbeat" 2>/dev/null; cp "$LOGD/com.portability.transcript-uploader.health" "$OUT/$name.health" 2>/dev/null; }
+up() { local name="$1"; shift; ( cd "$W" && env "$@" bash "$V/.claude/scripts/transcript-uploader.sh" ) > "$OUT/$name.log" 2>&1; echo $? > "$OUT/$name.rc"; cp "$ROOT/log/counter" "$OUT/$name.after-call" 2>/dev/null; cp "$V/.claude/scripts/uploader-heartbeat.txt" "$OUT/$name.heartbeat" 2>/dev/null; cp "$LOGD/com.portability.transcript-uploader.health" "$OUT/$name.health" 2>/dev/null; mkdir -p "$OUT/$name-staging-logs"; cp "$V/transcripts/reports/_process/_staging/"log-*.txt "$OUT/$name-staging-logs/" 2>/dev/null; }
 ab() { local name="$1"; shift; ( cd "$W" && env "$@" bash "$V/.claude/scripts/transcript-absorber.sh" ) > "$OUT/$name.log" 2>&1; echo $? > "$OUT/$name.rc"; cp "$ROOT/log/counter" "$OUT/$name.after-call" 2>/dev/null; }
 
 up U0 X=1                       # empty state file: must refuse, rc 3, and notify

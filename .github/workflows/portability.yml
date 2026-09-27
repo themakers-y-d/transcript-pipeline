@@ -94,6 +94,27 @@ jobs:
       - name: tzdata for the Python the pipeline will use (what the install runbook does)
         run: python -m pip install --user -q tzdata
 
+      - name: "5. Command-line limit: what a native exe accepts from Git Bash, in ASCII and in Hebrew"
+        run: |
+          probe() {
+            local ch="$1" lo=1000 hi=70000 mid s
+            while [ $((hi - lo)) -gt 100 ]; do
+              mid=$(((lo + hi) / 2))
+              s="$(python -c "import sys; sys.stdout.write(sys.argv[1] * int(sys.argv[2]))" "$ch" "$mid")"
+              if python -c "pass" "$s" 2>/dev/null; then lo=$mid; else hi=$mid; fi
+            done
+            echo "one argument of '$ch' x N: accepted up to about N=$lo"
+          }
+          probe a
+          probe א
+          H40="$(python -c "print('א' * 40000, end='')")"
+          if python -c "import sys; print(len(sys.argv[1]))" "$H40" 2> "$RUNNER_TEMP/e2big.txt"; then
+            echo "40000 Hebrew characters were accepted"; exit 1
+          fi
+          echo "40000 Hebrew characters: refused: $(head -c 200 "$RUNNER_TEMP/e2big.txt")"
+          echo "and through stdin, 40000 is no problem:"
+          printf '%s' "$H40" | python -c "import sys; print(len(sys.stdin.read()))"
+
       - name: "4 (+2). Full uploader and absorber runs with a stub claude, a Store-stub python3 first on PATH"
         run: SUITE_FAKE_PY3=1 bash .github/portability/stub-suite.sh . "$(cygpath -u "$RUNNER_TEMP")/suite"
 
@@ -104,18 +125,6 @@ jobs:
 
       - name: "8. apply-to-vault.py on a fixture MAKERS vault (LF kept, .gitattributes and schedule.ps1 land)"
         run: bash .github/portability/apply-check.sh "$(cygpath -u "$RUNNER_TEMP")/apply"
-
-      - name: "5. Command-line limit: a native exe refuses 40000 Hebrew characters, takes 30000"
-        run: |
-          H40="$(python -c "print('א' * 40000)")"
-          if python -c "import sys; print(len(sys.argv[1]))" "$H40" 2> "$RUNNER_TEMP/e2big.txt"; then
-            echo "40000 characters were accepted"; exit 1
-          fi
-          echo "40000 characters: refused: $(head -c 200 "$RUNNER_TEMP/e2big.txt")"
-          H30="$(python -c "print('א' * 30000)")"
-          python -c "import sys; print('30000 characters: accepted, argv length', len(sys.argv[1]))" "$H30"
-          echo "and through stdin, 40000 is no problem:"
-          printf '%s' "$H40" | python -c "import sys; print(len(sys.stdin.read()))"
 
       - name: "5. negative control: the suite at the old 40000 default fails its long upload on Windows"
         run: |
