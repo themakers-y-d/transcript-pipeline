@@ -291,7 +291,7 @@ osascript -e 'display notification "בדיקה" with title "צינור התמל�
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) TP_TITLE="צינור התמלולים" TP_MSG="בדיקה" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w ~/transcript-pipeline/scripts/windows/schedule.ps1)" -Action notify-test ;; esac
 ```
 
-ואמור לו לאן להסתכל: ריבוע קטן שקופץ בפינה הימנית התחתונה של המסך, מעל השעון. **ואם הוא אומר שלא ראה כלום**, ההתראה נרשמת על שם Windows PowerShell ולא על שם הצינור, וזה השם לחפש. אמור לו מילה במילה: "תלחץ על כפתור ההתחלה, תכתוב התראות ותלחץ Enter. תוודא שההתראות דלוקות, ש'נא לא להפריע' כבוי, ושברשימה Windows PowerShell מסומן כמותר." ומה עושים אם עדיין לא קופץ כלום, ומה אומרים לו על השורה בבוקר, כתוב למעלה וחל גם כאן בדיוק.
+ואמור לו לאן להסתכל: ריבוע קטן שקופץ בפינה הימנית התחתונה של המסך, מעל השעון. **ואם הוא אומר שלא ראה כלום**, ההתראה נרשמת על שם Windows PowerShell ולא על שם הצינור, וזה השם לחפש. אמור לו מילה במילה: "תלחץ על כפתור ההתחלה, תכתוב התראות ותלחץ Enter. תוודא שההתראות דלוקות, ש'נא לא להפריע' כבוי, ושברשימה Windows PowerShell מסומן כמותר." ומה עושים אם עדיין לא קופץ כלום, ומה אומרים לו על השורה בבוקר, כתוב למעלה בשתי הפסקאות שמתחילות ב"ואם עדיין לא קופץ כלום" וב"אחרת, חכה", וזה חל גם כאן בדיוק. שמות האפליקציות של מק שבפסקה שלפניהן אינם שלו.
 
 ## שלב 6, פרוטוקול הספיגה
 
@@ -325,7 +325,7 @@ SEED_ONLY=1 bash scripts/transcript-absorber.sh
 
 ⛔ **כל הפקודות בשלב הזה ובשלבים 8 ו-9 רצות מתוך תיקיית הערכה, זו ששכפלת בשלב 0ו.** אתה עומד בתיקיית הזיכרון, והערכה יושבת מחוצה לה במכוון, אז שורה יחסית תיפול כאן על קובץ שלא נמצא. עשה `cd` לתיקיית הערכה פעם אחת, ואמור לבעלים כלום, זה לא מעניין אותו.
 
-ודא ששני הסקריפטים ניתנים להרצה (`chmod +x`). הרץ בדיקת תחביר על שניהם: `bash -n scripts/transcript-uploader.sh` ו-`bash -n scripts/transcript-absorber.sh`. אם `shellcheck` מותקן, הרץ גם אותו ותקן אזהרות אמיתיות. בדוק גם את שני קובצי הפייתון, כי בלעדיהם המעלה לא עובד: `python3 -m py_compile scripts/build-parts.py` ו-`python3 -m py_compile scripts/empty-register.py`. בווינדוס אותה בדיקה עם הפייתון מההגדרות: `. scripts/config.sh; "${PYTHON_BIN:-python}" -m py_compile scripts/build-parts.py scripts/empty-register.py`.
+ודא ששני הסקריפטים ניתנים להרצה (`chmod +x`). הרץ בדיקת תחביר על שניהם: `bash -n scripts/transcript-uploader.sh` ו-`bash -n scripts/transcript-absorber.sh`. אם `shellcheck` מותקן, הרץ גם אותו ותקן אזהרות אמיתיות. בדוק גם את שני קובצי הפייתון, כי בלעדיהם המעלה לא עובד. במק: `python3 -m py_compile scripts/build-parts.py` ו-`python3 -m py_compile scripts/empty-register.py`. בווינדוס אותה בדיקה עם הפייתון מההגדרות: `. scripts/config.sh; "${PYTHON_BIN:-python}" -m py_compile scripts/build-parts.py scripts/empty-register.py`.
 
 ואז הרץ כל סקריפט פעם אחת ב-`DRY_RUN=1` כדי לראות שהוא מוצא את הבינארי, קורא את ה-config ומדפיס את הנתיבים הנכונים.
 
@@ -415,7 +415,7 @@ case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) powershell.exe -NoProfile -Execution
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w scripts/windows/schedule.ps1)" -Action run -LabelPrefix "<LABEL_PREFIX>" -Job absorber ;; esac
 ```
 
-**בווינדוס** הריצה רצה ברקע בלי חלון, והלוגים שלה נכתבים ל-`%LOCALAPPDATA%\transcript-pipeline\logs` (ב-Git Bash `"$LOCALAPPDATA/transcript-pipeline/logs"`), באותם שמות כמו במק. שלוש הגדרות שם אינן קישוט: הריצה יוצאת גם כשהמחשב על סוללה, כי ברירת המחדל של ווינדוס מדלגת עליה בשקט. ריצה שהוחמצה כי המחשב ישן רצה כשהוא מתעורר. ואין חלון שחור שהוא עלול לסגור באמצע.
+**בווינדוס** הריצה רצה ברקע בלי חלון, והלוגים שלה נכתבים ל-`%LOCALAPPDATA%\transcript-pipeline\logs` (ב-Git Bash `"$(cygpath -u "$LOCALAPPDATA")/transcript-pipeline/logs"`), באותם שמות כמו במק. שלוש הגדרות שם אינן קישוט: הריצה יוצאת גם כשהמחשב על סוללה, כי ברירת המחדל של ווינדוס מדלגת עליה בשקט. ריצה שהוחמצה כי המחשב ישן רצה כשהוא מתעורר. ואין חלון שחור שהוא עלול לסגור באמצע.
 
 **בווינדוס:** ⛔ **ואם שכבת ההרשאות חוסמת אותך, הוא מדביק את השורה בעצמו**, וכל מה שכתוב למעלה על מה לומר לו לפני כן חל גם כאן, חוץ מהחלון. בווינדוס אמור לו מילה במילה: "תלחץ על כפתור ההתחלה, תכתוב PowerShell ותלחץ Enter. ייפתח חלון עם סמן מהבהב. תדביק שם את השורה עם קליק ימני, ותלחץ Enter." ⛔ **והשורה שאתה נותן לו היא בתחביר של PowerShell ובנתיבים המלאים שלו**, לא הפקודה של Git Bash: `powershell -NoProfile -ExecutionPolicy Bypass -File "C:\...\transcript-pipeline\scripts\windows\schedule.ps1" -Action install -LabelPrefix <LABEL_PREFIX> -ScriptsDir "C:/.../transcript-pipeline/scripts"`. והיא כן מדפיסה משהו כשהיא מצליחה, את שני הבלוקים, אז אמור לו שזה מה שהוא אמור לראות ושיעתיק לך אותם.
 
