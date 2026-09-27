@@ -91,6 +91,18 @@ jobs:
           grep -q "10:15 |" "$ST/upload-manifest.tsv"
           [ "$(tr -cd '\r' < "$ST/upload-manifest.tsv" | wc -c | tr -d ' ')" = 0 ] && echo "manifest written with LF"
 
+      - name: "3b. The Windows blocks of INSTALL.md, run exactly as written (a Mac runs the same blocks as no-ops)"
+        run: |
+          T="$(cygpath -u "$RUNNER_TEMP")/blocks"
+          python .github/portability/runbook-blocks.py INSTALL.md "$T"
+          for f in "$T"/block*.sh; do
+            case "$(cat "$f")" in *schedule.ps1*|*transcript-pipeline/scripts*) continue ;; esac
+            echo "--- $(basename "$f"):"; cat "$f"; echo "--- output:"
+            bash "$f" 2>&1 | tee "$f.out"
+          done
+          grep -h "Asia/Jerusalem" "$T"/block*.out
+          grep -hE '^[A-Za-z]:/.*python(3)?(\.exe)?$' "$T"/block*.out
+
       - name: tzdata for the Python the pipeline will use (what the install runbook does)
         run: python -m pip install --user -q tzdata
 
@@ -156,6 +168,11 @@ jobs:
         run: |
           for f in scripts/*.sh scripts/*.py; do n=$(tr -cd '\r' < "$f" | wc -c | tr -d ' '); echo "$f  CR bytes: $n"; [ "$n" = 0 ] || exit 1; done
           bash -n scripts/transcript-uploader.sh && bash -n scripts/transcript-absorber.sh && echo "bash -n: both scripts parse"
+
+      - name: "Mac: every Windows-guarded runbook block is a no-op here"
+        run: |
+          python3 .github/portability/runbook-blocks.py INSTALL.md "$RUNNER_TEMP/blocks"
+          for f in "$RUNNER_TEMP"/blocks/block*.sh; do out="$(bash "$f" 2>&1)"; echo "$(basename "$f"): [$out]"; [ -z "$out" ]; done
 
       - name: "4. Full uploader and absorber runs with a stub claude"
         run: bash .github/portability/stub-suite.sh . "$RUNNER_TEMP/suite"

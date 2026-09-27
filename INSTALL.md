@@ -88,27 +88,35 @@ winget install -e --id Git.Git --accept-source-agreements --accept-package-agree
 
 ורק אז שלח לו את `xcode-select --install` לבדה. חכה שיסיים ובדוק שוב.
 
-**בווינדוס:** הבינארי הוא `claude.exe`, באותם מקומות: `~/.local/bin/claude.exe`, או תחת `~/.vscode/extensions/anthropic.claude-code-*/resources/native-binary/`, ואם אין שם, `command -v claude`. הסקריפטים מחפשים בדיוק כך. `git --version` כבר עונה, אחרת לא היית מגיע לכאן. ⛔ **ופייתון: אל תסמוך על `python3`.** בווינדוס הוא כמעט תמיד קיצור דרך לחנות של מיקרוסופט, שמדפיס Python was not found ויוצא, ובלעדיו המעלה נכשל כל לילה בלי שהשגיאה תרמוז על פייתון. מצא פייתון אמיתי כך:
+**בווינדוס:** הבינארי הוא `claude.exe`, באותם מקומות: `~/.local/bin/claude.exe`, או תחת `~/.vscode/extensions/anthropic.claude-code-*/resources/native-binary/`, ואם אין שם, `command -v claude`. הסקריפטים מחפשים בדיוק כך. `git --version` כבר עונה, אחרת לא היית מגיע לכאן. ⛔ **ופייתון: אל תסמוך על `python3`.** בווינדוס הוא כמעט תמיד קיצור דרך לחנות של מיקרוסופט, שמדפיס Python was not found ויוצא, ובלעדיו המעלה נכשל כל לילה בלי שהשגיאה תרמוז על פייתון. מצא פייתון אמיתי כך. כל בלוק בווינדוס בקובץ הזה עטוף בבדיקה של מערכת ההפעלה, כך שבמק הוא לא עושה כלום:
 
 ```bash
-PY=""; for c in python3 python py; do "$c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1 && { PY="$c"; break; }; done; echo "${PY:-none}"
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*)
+  PY=""; for c in python3 python py; do "$c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1 && { PY="$c"; break; }; done; echo "${PY:-none}" ;;
+esac
 ```
 
-אם יצא `none`, התקן אותו בעצמך. זו התקנה למשתמש בלבד, בלי חלון אישור, ולפניה אמור לו את המשפט על הרכיב החינמי משלב 0:
+**בווינדוס**, אם יצא `none`, התקן אותו בעצמך. זו התקנה למשתמש בלבד, בלי חלון אישור, ולפניה אמור לו את המשפט על הרכיב החינמי משלב 0:
 
 ```bash
-winget install -e --id Python.Python.3.12 --scope user --accept-source-agreements --accept-package-agreements
-PY="$(cygpath -m "$LOCALAPPDATA")/Programs/Python/Python312/python.exe"; "$PY" --version
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*)
+  winget install -e --id Python.Python.3.12 --scope user --accept-source-agreements --accept-package-agreements
+  "$(cygpath -m "$LOCALAPPDATA")/Programs/Python/Python312/python.exe" --version ;;
+esac
 ```
 
-הנתיב המלא כי ההתקנה החדשה עוד לא נמצאת ב-PATH של הסשן הזה. בשלב 2 הוא נכנס ל-`PYTHON_BIN`. **ואז השעון: לפייתון בווינדוס אין את מסד אזורי הזמן**, ובלעדיו כל כותרת של מסמך בדרייב נושאת שעה של גריניץ', שעתיים או שלוש מוקדם מדי, בשקט. התקן והוכח:
+**בווינדוס, ואז השעון: לפייתון בווינדוס אין את מסד אזורי הזמן**, ובלעדיו כל כותרת של מסמך בדרייב נושאת שעה של גריניץ', שעתיים או שלוש מוקדם מדי, בשקט. הבלוק הזה מוצא את הפייתון מחדש בעצמו, כי משתנה מבלוק קודם לא שורד לכאן, מתקין את אזורי הזמן, מוכיח, ומדפיס את הנתיב המלא:
 
 ```bash
-"$PY" -m pip install --user tzdata
-"$PY" -c "import zoneinfo; print(zoneinfo.ZoneInfo('Asia/Jerusalem'))"
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*)
+  PY=""; for c in python3 python py "$(cygpath -m "$LOCALAPPDATA")/Programs/Python/Python312/python.exe"; do "$c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1 && { PY="$c"; break; }; done
+  "$PY" -m pip install --user tzdata
+  "$PY" -c "import zoneinfo; print(zoneinfo.ZoneInfo('Asia/Jerusalem'))"
+  cygpath -m "$("$PY" -c 'import sys; print(sys.executable)' | tr -d '\r')" ;;
+esac
 ```
 
-השורה השנייה חייבת להדפיס `Asia/Jerusalem` ולא שגיאה.
+`Asia/Jerusalem` חייב להופיע בפלט ולא שגיאה. השורה האחרונה היא הנתיב המלא לפייתון: בשלב 2 הוא נכנס ל-`PYTHON_BIN`, כי ריצה מתוזמנת לא תמיד רואה את אותו PATH כמו הסשן הזה.
 
 **ג. שמות הכלים האמיתיים.** הדפס את רשימת שמות כלי ה-MCP הזמינים לך עכשיו. מצא את הקידומת המדויקת של Wispr Flow ושל Google Drive. אל תנחש. `[לאמת]` הקידומת של Drive תלויה בדרך שבה המחבר נוסף: המחבר של claude.ai נותן `mcp__claude_ai_Google_Drive__`, אבל Drive שנוסף דרך MCP אחר ייתן קידומת שונה. את הקידומות שמצאת תכתוב בהמשך ל-config.sh; משם הסקריפטים בונים את רשימת הכלים המותרים.
 
@@ -136,7 +144,13 @@ git clone https://github.com/themakers-y-d/transcript-pipeline ~/transcript-pipe
 
 ⛔ **והבעלים לא יודע אותה.** הוא העתיק הודעה קצרה מדף אינטרנט והדביק אותה, ואם הכתובת לא הגיעה אליך במלואה אין לו מאיפה לשלוף אותה. לשאול אותו מאיפה להוריד את הערכה הוא מבוי סתום: התשובה נמצאת כאן, לא אצלו, והשאלה רק מוכיחה לו שאתה לא יודע מה אתה עושה.
 
-שכפל את הערכה לתיקייה נפרדת **מחוץ** לתיקיית הזיכרון, למשל `~/transcript-pipeline`. **בווינדוס, מיד אחרי השכפול:** `for f in ~/transcript-pipeline/scripts/*.sh; do printf '%s ' "$f"; tr -cd '\r' < "$f" | wc -c; done` חייב להדפיס 0 ליד כל קובץ. מספר אחר אומר שהסקריפטים ירדו עם סופי שורות של ווינדוס, והעותקים שלהם יגררו את זה הלאה: מחק את התיקייה ושכפל שוב. **ואם כבר שכפלת אותה לתוך תיקיית הזיכרון**, וזה הדבר הטבעי לעשות כי הבעלים פתח את קלוד שם והדביק שם את הבקשה, העבר אותה החוצה עכשיו ומחק את העותק שנשאר בפנים. ערכה שנשארת בפנים נגררת לקומיטים של הסופג ומייצרת ריפו בתוך ריפו. אל תשאיר אותה בתוך תיקיית הזיכרון: הסופג מבצע `git add -A` על תיקיית הזיכרון בכל לילה, וערכה שיושבת בפנים נגררת לתוך הקומיטים שלו ומייצרת ריפו בתוך ריפו. ⛔ **ומהרגע הזה יש שתי תיקיות בסיפור, והוא לא יודע את זה.** אחת שלו, שהמערכת כותבת אליה, ואחת של המנוע. בלי המשפט הזה הוא ישמע שני שמות ולא ידע במה מדובר, וזה בדיוק המקום שבו הוא עוצר. אמור לו מילה במילה, פעם אחת, כאן:
+שכפל את הערכה לתיקייה נפרדת **מחוץ** לתיקיית הזיכרון, למשל `~/transcript-pipeline`. **בווינדוס, מיד אחרי השכפול**, הבלוק הזה חייב להדפיס 0 ליד כל קובץ:
+
+```bash
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) for f in ~/transcript-pipeline/scripts/*.sh; do printf '%s ' "$f"; tr -cd '\r' < "$f" | wc -c; done ;; esac
+```
+
+מספר אחר אומר שהסקריפטים ירדו עם סופי שורות של ווינדוס. שכפול חוזר באותה דרך יחזיר בדיוק את אותו דבר, אז שכפל פעם אחת עם סופי השורות של הערכה עצמה, ובדוק שוב: `rm -rf ~/transcript-pipeline && git clone --config core.autocrlf=input https://github.com/themakers-y-d/transcript-pipeline ~/transcript-pipeline`. **ואם כבר שכפלת אותה לתוך תיקיית הזיכרון**, וזה הדבר הטבעי לעשות כי הבעלים פתח את קלוד שם והדביק שם את הבקשה, העבר אותה החוצה עכשיו ומחק את העותק שנשאר בפנים. ערכה שנשארת בפנים נגררת לקומיטים של הסופג ומייצרת ריפו בתוך ריפו. אל תשאיר אותה בתוך תיקיית הזיכרון: הסופג מבצע `git add -A` על תיקיית הזיכרון בכל לילה, וערכה שיושבת בפנים נגררת לתוך הקומיטים שלו ומייצרת ריפו בתוך ריפו. ⛔ **ומהרגע הזה יש שתי תיקיות בסיפור, והוא לא יודע את זה.** אחת שלו, שהמערכת כותבת אליה, ואחת של המנוע. בלי המשפט הזה הוא ישמע שני שמות ולא ידע במה מדובר, וזה בדיוק המקום שבו הוא עוצר. אמור לו מילה במילה, פעם אחת, כאן:
 
 "רגע אחד על סדר. יש עכשיו שתי תיקיות. [שם התיקייה שלו] היא שלך, וזו שהמערכת כותבת אליה כל בוקר, ואליה תסתכל כשתרצה לראות מה נכתב. ו-transcript-pipeline היא המנוע, הקבצים שמריצים את זה בלילה. אליה אתה לא צריך להיכנס אף פעם, רק אל תמחק אותה."
 
@@ -272,7 +286,7 @@ osascript -e 'display notification "בדיקה" with title "צינור התמל�
 **בווינדוס:** אותו רעיון, בחלון אחר. שגר התראת בדיקה אחת, בדיוק בשורה הזאת (ואם שכפלת את הערכה למקום אחר, הנתיב שלה במקום `~/transcript-pipeline`):
 
 ```bash
-TP_TITLE="צינור התמלולים" TP_MSG="בדיקה" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w ~/transcript-pipeline/scripts/windows/schedule.ps1)" -Action notify-test
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) TP_TITLE="צינור התמלולים" TP_MSG="בדיקה" powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w ~/transcript-pipeline/scripts/windows/schedule.ps1)" -Action notify-test ;; esac
 ```
 
 ואמור לו לאן להסתכל: ריבוע קטן שקופץ בפינה הימנית התחתונה של המסך, מעל השעון. **ואם הוא אומר שלא ראה כלום**, ההתראה נרשמת על שם Windows PowerShell ולא על שם הצינור, וזה השם לחפש. אמור לו מילה במילה: "תלחץ על כפתור ההתחלה, תכתוב התראות ותלחץ Enter. תוודא שההתראות דלוקות, ש'נא לא להפריע' כבוי, ושברשימה Windows PowerShell מסומן כמותר." ומה עושים אם עדיין לא קופץ כלום, ומה אומרים לו על השורה בבוקר, כתוב למעלה וחל גם כאן בדיוק.
@@ -309,7 +323,7 @@ SEED_ONLY=1 bash scripts/transcript-absorber.sh
 
 ⛔ **כל הפקודות בשלב הזה ובשלבים 8 ו-9 רצות מתוך תיקיית הערכה, זו ששכפלת בשלב 0ו.** אתה עומד בתיקיית הזיכרון, והערכה יושבת מחוצה לה במכוון, אז שורה יחסית תיפול כאן על קובץ שלא נמצא. עשה `cd` לתיקיית הערכה פעם אחת, ואמור לבעלים כלום, זה לא מעניין אותו.
 
-ודא ששני הסקריפטים ניתנים להרצה (`chmod +x`). הרץ בדיקת תחביר על שניהם: `bash -n scripts/transcript-uploader.sh` ו-`bash -n scripts/transcript-absorber.sh`. אם `shellcheck` מותקן, הרץ גם אותו ותקן אזהרות אמיתיות. בדוק גם את שני קובצי הפייתון, כי בלעדיהם המעלה לא עובד: `python3 -m py_compile scripts/build-parts.py` ו-`python3 -m py_compile scripts/empty-register.py`. בווינדוס אותה בדיקה עם הפייתון שמצאת בשלב 0ב: `"$PY" -m py_compile scripts/build-parts.py` ו-`"$PY" -m py_compile scripts/empty-register.py`.
+ודא ששני הסקריפטים ניתנים להרצה (`chmod +x`). הרץ בדיקת תחביר על שניהם: `bash -n scripts/transcript-uploader.sh` ו-`bash -n scripts/transcript-absorber.sh`. אם `shellcheck` מותקן, הרץ גם אותו ותקן אזהרות אמיתיות. בדוק גם את שני קובצי הפייתון, כי בלעדיהם המעלה לא עובד: `python3 -m py_compile scripts/build-parts.py` ו-`python3 -m py_compile scripts/empty-register.py`. בווינדוס אותה בדיקה עם הפייתון מההגדרות: `. scripts/config.sh; "${PYTHON_BIN:-python}" -m py_compile scripts/build-parts.py scripts/empty-register.py`.
 
 ואז הרץ כל סקריפט פעם אחת ב-`DRY_RUN=1` כדי לראות שהוא מוצא את הבינארי, קורא את ה-config ומדפיס את הנתיבים הנכונים.
 
@@ -351,9 +365,11 @@ ALLOW_EMPTY_STATE=1 bash scripts/transcript-uploader.sh
 
 ## שלב 9, תזמון בענן המקומי (launchd במק, מתזמן המשימות בווינדוס)
 
+⛔ **השלב הזה מתפצל לפי המחשב שבדקת בשלב 0, והפיצול הוא הדבר הראשון.** **במק** עבוד לפי כל מה שכתוב עד הפסקה שמתחילה ב"**בווינדוס** אין launchd", ודלג על כל פסקה שמסומנת **בווינדוס**. **בווינדוס** דלג ישר לפסקה שמתחילה ב"**בווינדוס** אין launchd", ואל תמלא ואל תטען שום plist. פסקת ה-`[לאמת]` על התזמון בסוף השלב משותפת.
+
 **במק:** מלא את שני קבצי ה-plist בתיקיית `launchd/` מתוך התבניות: `__LABEL__`, `__SCRIPT_PATH__`, `__PATH__`, `__LOG_DIR__`. ה-PATH חייב לכלול את `~/.local/bin` ואת `/opt/homebrew/bin` עם הנתיבים האמיתיים של הבעלים, אחרת launchd לא ימצא את `node` ואת `git`. העתק את שני הקבצים ל-`~/Library/LaunchAgents/`. **שם הקובץ חייב להיות זהה ל-`Label` שבתוכו** ולהסתיים ב-`.plist`, אחרת launchd טוען ג'וב בשם אחד ומחפש אותו בשם אחר. עם `LABEL_PREFIX` שמילאת, אלה `<LABEL_PREFIX>-uploader.plist` ו-`<LABEL_PREFIX>-absorber.plist`.
 
-ואז טען. אלה הפקודות המדויקות, ואלה גם הפקודות שאתה מוסר לבעלים אם שכבת ההרשאות חוסמת אותך. אל תעקוף אותה, ואל תמציא ניסוח משלך:
+**במק:** ואז טען. אלה הפקודות המדויקות, ואלה גם הפקודות שאתה מוסר לבעלים אם שכבת ההרשאות חוסמת אותך. אל תעקוף אותה, ואל תמציא ניסוח משלך:
 
 ```
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/<LABEL_PREFIX>-uploader.plist
@@ -377,7 +393,7 @@ launchctl print gui/$(id -u)/<LABEL_PREFIX>-absorber
 
 שתיהן חייבות להחזיר בלוק ולא שגיאה. אם אחת מהן מחזירה שגיאה, הג'וב לא נטען: בדוק ששם הקובץ זהה ל-`Label` שבתוכו ושהנתיב בתוך ה-plist קיים. ⛔ **ואל תאמר לבעלים שהתזמון חי לפני ששתיהן ענו**, ואל תנקוב בשעות בשלב 11 על סמך קובץ שהועתק בלבד.
 
-לבדיקה מיידית בלי לחכות לשעה, הפעלה ידנית של ג'וב טעון:
+**במק**, לבדיקה מיידית בלי לחכות לשעה, הפעלה ידנית של ג'וב טעון:
 
 ```
 launchctl kickstart -k gui/$(id -u)/<LABEL_PREFIX>-absorber
@@ -386,20 +402,20 @@ launchctl kickstart -k gui/$(id -u)/<LABEL_PREFIX>-absorber
 **בווינדוס** אין launchd ואין plist. מתזמן המשימות של ווינדוס מחזיק את שתי הריצות, וסקריפט אחד בערכה רושם אותן באותן שעות בדיוק: 22:10, ו-08:30 ו-22:40. זו הפקודה המדויקת, מתיקיית הערכה:
 
 ```bash
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w scripts/windows/schedule.ps1)" -Action install -LabelPrefix "<LABEL_PREFIX>" -ScriptsDir "$(cygpath -m "$PWD/scripts")"
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w scripts/windows/schedule.ps1)" -Action install -LabelPrefix "<LABEL_PREFIX>" -ScriptsDir "$(cygpath -m "$PWD/scripts")" ;; esac
 ```
 
-היא מדפיסה בסופה שני בלוקים, אחד לכל ריצה: מתי הריצה הבאה, ובשורת `runs:` מה בדיוק היא מריצה. זו התוצאה הנצפית של השלב, ⛔ **ושניהם חייבים להופיע.** שורה שמתחילה ב-`ERROR` או ב-`NOT REGISTERED` אומרת שלא נרשם, ואותו כלל חל כאן: אל תאמר לבעלים שהתזמון חי לפני שראית את שני הבלוקים. אותה בדיקה בכל רגע אחר היא `-Action status` באותה שורה, בלי `-ScriptsDir`. אין צורך בהרשאות מנהל, כי הריצה היא שלו ולא של המערכת.
+היא מדפיסה בסופה שני בלוקים, אחד לכל ריצה: מתי הריצה הבאה, ובשורת `runs:` מה בדיוק היא מריצה. זו התוצאה הנצפית של השלב, ⛔ **ושניהם חייבים להופיע.** שורה שמתחילה ב-`ERROR` או ב-`NOT REGISTERED` אומרת שלא נרשם, ואותו כלל חל כאן: אל תאמר לבעלים שהתזמון חי לפני שראית את שני הבלוקים. אותה בדיקה בכל רגע אחר היא `-Action status` באותה שורה, בלי `-ScriptsDir`. אין צורך בהרשאות מנהל, כי הריצה היא שלו ולא של המערכת. הפקודה גם יוצרת את תיקיית הלוגים בעצמה.
 
-לבדיקה מיידית בלי לחכות לשעה, הפעלה דרך המתזמן עצמו:
+**בווינדוס**, לבדיקה מיידית בלי לחכות לשעה, הפעלה דרך המתזמן עצמו:
 
 ```bash
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w scripts/windows/schedule.ps1)" -Action run -LabelPrefix "<LABEL_PREFIX>" -Job absorber
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w scripts/windows/schedule.ps1)" -Action run -LabelPrefix "<LABEL_PREFIX>" -Job absorber ;; esac
 ```
 
-הריצה רצה ברקע בלי חלון, והלוגים שלה נכתבים ל-`%LOCALAPPDATA%\transcript-pipeline\logs` (ב-Git Bash `"$LOCALAPPDATA/transcript-pipeline/logs"`), באותם שמות כמו במק. שלוש הגדרות שם אינן קישוט: הריצה יוצאת גם כשהמחשב על סוללה, כי ברירת המחדל של ווינדוס מדלגת עליה בשקט. ריצה שהוחמצה כי המחשב ישן רצה כשהוא מתעורר. ואין חלון שחור שהוא עלול לסגור באמצע.
+**בווינדוס** הריצה רצה ברקע בלי חלון, והלוגים שלה נכתבים ל-`%LOCALAPPDATA%\transcript-pipeline\logs` (ב-Git Bash `"$LOCALAPPDATA/transcript-pipeline/logs"`), באותם שמות כמו במק. שלוש הגדרות שם אינן קישוט: הריצה יוצאת גם כשהמחשב על סוללה, כי ברירת המחדל של ווינדוס מדלגת עליה בשקט. ריצה שהוחמצה כי המחשב ישן רצה כשהוא מתעורר. ואין חלון שחור שהוא עלול לסגור באמצע.
 
-⛔ **ואם שכבת ההרשאות חוסמת אותך, הוא מדביק את השורה בעצמו**, וכל מה שכתוב למעלה על מה לומר לו לפני כן חל גם כאן, חוץ מהחלון. בווינדוס אמור לו מילה במילה: "תלחץ על כפתור ההתחלה, תכתוב PowerShell ותלחץ Enter. ייפתח חלון עם סמן מהבהב. תדביק שם את השורה עם קליק ימני, ותלחץ Enter." ⛔ **והשורה שאתה נותן לו היא בתחביר של PowerShell ובנתיבים המלאים שלו**, לא הפקודה של Git Bash: `powershell -NoProfile -ExecutionPolicy Bypass -File "C:\...\transcript-pipeline\scripts\windows\schedule.ps1" -Action install -LabelPrefix <LABEL_PREFIX> -ScriptsDir "C:/.../transcript-pipeline/scripts"`. והיא כן מדפיסה משהו כשהיא מצליחה, את שני הבלוקים, אז אמור לו שזה מה שהוא אמור לראות ושיעתיק לך אותם.
+**בווינדוס:** ⛔ **ואם שכבת ההרשאות חוסמת אותך, הוא מדביק את השורה בעצמו**, וכל מה שכתוב למעלה על מה לומר לו לפני כן חל גם כאן, חוץ מהחלון. בווינדוס אמור לו מילה במילה: "תלחץ על כפתור ההתחלה, תכתוב PowerShell ותלחץ Enter. ייפתח חלון עם סמן מהבהב. תדביק שם את השורה עם קליק ימני, ותלחץ Enter." ⛔ **והשורה שאתה נותן לו היא בתחביר של PowerShell ובנתיבים המלאים שלו**, לא הפקודה של Git Bash: `powershell -NoProfile -ExecutionPolicy Bypass -File "C:\...\transcript-pipeline\scripts\windows\schedule.ps1" -Action install -LabelPrefix <LABEL_PREFIX> -ScriptsDir "C:/.../transcript-pipeline/scripts"`. והיא כן מדפיסה משהו כשהיא מצליחה, את שני הבלוקים, אז אמור לו שזה מה שהוא אמור לראות ושיעתיק לך אותם.
 
 `[לאמת]` תזמון: המעלה ב-22:10 לא תמיד מסיים לפני שהסופג של אותו ערב סורק. ההנחה ש-30 הדקות שבין 22:10 ל-22:40 מספיקות שגויה בפועל אצל מי שבנה את זה. לכן ריצת הבוקר של הסופג היא הראשית, וריצת הערב היא מאמץ נוסף בלבד. בדוק את זמני הסיום האמיתיים אצל הבעלים והתאם את השעות; אל תבטיח ספיגה באותו ערב.
 
