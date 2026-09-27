@@ -101,7 +101,7 @@ jobs:
             bash "$f" 2>&1 | tee "$f.out"
           done
           grep -h "Asia/Jerusalem" "$T"/block*.out
-          grep -hE '^[A-Za-z]:/.*python(3)?(\.exe)?$' "$T"/block*.out
+          grep -hiE '^[a-z]:/.*python' "$T"/block*.out
 
       - name: tzdata for the Python the pipeline will use (what the install runbook does)
         run: python -m pip install --user -q tzdata
