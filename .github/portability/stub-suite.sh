@@ -181,7 +181,8 @@ check "U5 treats an empty enumeration as a dead connection (rc 2)" '[ "$(rc U5)"
 [ "$WIN" = 0 ] && check "the three failure notifications exercised here went through osascript" '[ "$(wc -l < "$OUT/osascript.log" | tr -d " ")" = 3 ] && grep -q "1 תמלול לא נספג במלואו. בדוק את הלוג." "$OUT/osascript.log" && grep -q "התמלולים של היום לא הועלו לתיקייה." "$OUT/osascript.log"'
 check "absorber health OK in LOG_DIR" 'grep -q "^OK " "$LOGD/com.portability.transcript-absorber.health"'
 MAXP="$(awk -F'\t' '$2=="upload"{if($5>m)m=$5} END{print m+0}' "$ROOT/log/calls.log")"
-echo "INFO  longest upload prompt: $MAXP characters (Windows limit for a whole command line: 32767)"
+MAXB="$(for f in "$ROOT"/log/prompt-*.txt; do wc -c < "$f"; done | sort -n | tail -1 | tr -d ' ')"
+echo "INFO  longest prompt: $MAXP characters, $MAXB bytes of UTF-8 (Git Bash refuses a Windows command line over about 32700 bytes)"
 echo "INFO  uploads: $(wc -l < "$ROOT/log/uploads.tsv" | tr -d ' '), calls: $(wc -l < "$ROOT/log/calls.log" | tr -d ' '), stub python: $SPY"
 echo "SUITE $([ "$FAILS" = 0 ] && echo GREEN || echo "RED ($FAILS failed)")"
 [ "$FAILS" = 0 ]

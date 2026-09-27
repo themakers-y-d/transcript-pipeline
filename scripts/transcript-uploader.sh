@@ -85,13 +85,16 @@ if [ ! -f "$SCRIPT_DIR/config.sh" ]; then
   exit 1
 fi
 # --- Windows (Git Bash) defaults, set BEFORE config.sh so a value written there still wins ---
-# LOG_DIR: there is no ~/Library/Logs on Windows. CHUNK_CHAR_LIMIT: Windows caps one command
-# line at 32,767 characters and the upload prompt carries a whole part, so 40000 cannot launch
-# there. Both are no-ops on a Mac, where uname says Darwin.
+# LOG_DIR: there is no ~/Library/Logs on Windows. CHUNK_CHAR_LIMIT: the upload prompt carries a
+# whole part as one argument, and Git Bash refuses to launch a Windows program whose command
+# line is over about 32,700 BYTES of UTF-8. Hebrew is two bytes a letter, so a Hebrew argument
+# stops at about 16,300 characters (measured on windows-latest, .github/workflows/portability.yml).
+# 14000 leaves room for the ~2,300 bytes of instructions and title around the part. Both are
+# no-ops on a Mac, where uname says Darwin.
 case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*)
     LOG_DIR="${LOG_DIR:-$(cygpath -m "${LOCALAPPDATA:-$HOME/AppData/Local}")/transcript-pipeline/logs}"
-    CHUNK_CHAR_LIMIT="${CHUNK_CHAR_LIMIT:-24000}"
+    CHUNK_CHAR_LIMIT="${CHUNK_CHAR_LIMIT:-14000}"
     ;;
 esac
 # shellcheck source=/dev/null

@@ -7,7 +7,7 @@ prints the final line the wrapper parses. Every call is recorded, so two runs of
 (before and after a change) can be compared call by call.
 
 It is a NATIVE program on purpose. On Windows the pipeline launches it through CreateProcess,
-exactly as it launches claude.exe, so the 32,767-character command-line limit and the
+exactly as it launches claude.exe, so the command-line limit (about 32,700 bytes of UTF-8 from Git Bash) and the
 /c/Users vs C:/Users path question are both real here. And it writes files in the platform's
 text mode, so on Windows its files and its stdout carry CRLF, which is the worst case the
 pipeline has to survive.

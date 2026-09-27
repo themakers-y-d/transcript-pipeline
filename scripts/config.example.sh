@@ -40,11 +40,12 @@ TIMEZONE="${TIMEZONE:-Asia/Jerusalem}"
 # The Drive create_file tool has a size ceiling far below Google Docs' own. A meeting whose
 # text exceeds this many CHARACTERS is split into parts, one Google Doc per part. 40000 is
 # proven safe for one create_file emission.
-# ON WINDOWS the uploader presets 24000 before this line is read, so this line then keeps
-# 24000: Windows caps one command line at 32,767 characters and the upload prompt carries a
-# whole part plus about 2,000 characters of instructions, so a 40000 part cannot even launch
-# there. To force a value on Windows, write it as a plain assignment (CHUNK_CHAR_LIMIT=20000),
-# and keep it under about 28000.
+# ON WINDOWS the uploader presets 14000 before this line is read, so this line then keeps
+# 14000. The upload prompt carries a whole part as one command-line argument, and Git Bash
+# refuses to launch a Windows program whose command line is over about 32,700 bytes of UTF-8.
+# Hebrew is two bytes a letter, so a Hebrew part stops launching at about 15,000 characters,
+# and 40000 (or even 24000) never launches there at all. To force a value on Windows, write it
+# as a plain assignment (CHUNK_CHAR_LIMIT=12000), and keep it under 15000.
 CHUNK_CHAR_LIMIT="${CHUNK_CHAR_LIMIT:-40000}"
 
 # --- Batch caps: a backlog drains across runs, never in one burst ---

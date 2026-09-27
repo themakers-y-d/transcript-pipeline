@@ -126,14 +126,15 @@ jobs:
       - name: "8. apply-to-vault.py on a fixture MAKERS vault (LF kept, .gitattributes and schedule.ps1 land)"
         run: bash .github/portability/apply-check.sh "$(cygpath -u "$RUNNER_TEMP")/apply"
 
-      - name: "5. negative control: the suite at the old 40000 default fails its long upload on Windows"
+      - name: "5. negative control: the same suite at 24000 characters a part fails its long upload"
         run: |
-          T="$(cygpath -u "$RUNNER_TEMP")/suite40k"
-          if CHUNK_CHAR_LIMIT=40000 bash .github/portability/stub-suite.sh . "$T" > "$RUNNER_TEMP/suite40k.txt" 2>&1; then
-            cat "$RUNNER_TEMP/suite40k.txt"; echo "the 40000 run passed, so the limit was not hit"; exit 1
+          T="$(cygpath -u "$RUNNER_TEMP")/suite24k"
+          if CHUNK_CHAR_LIMIT=24000 bash .github/portability/stub-suite.sh . "$T" > "$RUNNER_TEMP/suite24k.txt" 2>&1; then
+            cat "$RUNNER_TEMP/suite24k.txt"; echo "the 24000 run passed, so the limit was not hit"; exit 1
           fi
-          grep -E "INFO|U1 exits" "$RUNNER_TEMP/suite40k.txt"
+          grep -E "INFO|U1 exits" "$RUNNER_TEMP/suite24k.txt"
           grep "UPLOAD FAILED" "$T/out/U1.log" | head -2
+          cat "$T"/out/U1-staging-logs/log-upload-part-m-long-01-*.txt
           [ "$(tr -d '\r\n' < "$T/out/U1.rc")" = 5 ]
 
       - name: keep the evidence
