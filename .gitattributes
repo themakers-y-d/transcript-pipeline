@@ -1,7 +1,9 @@
-# Line endings are part of what makes this kit run. Git for Windows checks text out with
-# CRLF by default, and bash then dies on the first line of every script ($'\r': command not
-# found), and config.sh carries a \r into every value. These rules pin the endings for every
-# checkout on every machine. The repo already stores LF, so on a Mac nothing changes.
+# Line endings, pinned for every checkout on every machine. Git for Windows checks text out
+# with CRLF by default. Git Bash itself shrugs that off (measured on windows-latest), but not
+# everything that reads these files does: the copies apply-to-vault.py places in an owner's
+# vault would carry CRLF into their git history, a plain Cygwin or WSL bash dies on $'\r',
+# and a diff would show every line as changed. The repo already stores LF, so on a Mac
+# nothing changes.
 * text=auto
 *.sh        text eol=lf
 *.py        text eol=lf

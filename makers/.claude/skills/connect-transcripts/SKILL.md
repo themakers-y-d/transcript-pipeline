@@ -20,7 +20,7 @@ Nothing below repeats it. These are the steps; the mechanics and every reason ar
 
 > *"זה מחבר את הפגישות שלך למערכת. כל מה שנאמר בהן נכנס לזיכרון של הצוות פעמיים ביום, לבד. אני מתקין, ומראה לך ריצה אמיתית אחת לפני שזה נשאר דלוק."*
 
-Then name what it costs and **stop for their answer**: a **Claude subscription** (the two scheduled jobs run the CLI and draw on it), a **Wispr Flow subscription**, a Google account, and a Mac that is awake at the scheduled hour.
+Then name what it costs and **stop for their answer**: a **Claude subscription** (the two scheduled jobs run the CLI and draw on it), a **Wispr Flow subscription**, a Google account, and a computer, Mac or Windows, that is awake at the scheduled hour. On Windows the kit also needs Git for Windows and a real Python; step 3 checks both and installs what is missing.
 
 ⛔ **And say plainly where their words go.** Wispr transcribes and Google Drive stores, both under their own accounts, with no service of ours in between. **That is not "everything stays on your machine", and claiming it would be false** — the bonus page says so in those words, and a skill that contradicts the page is the version they will believe.
 
@@ -36,6 +36,8 @@ Everything in this step is a finding you report, not a value you carry in from s
 
 **The Claude binary.** Confirm the scripts resolve it on this machine.
 
+**The operating system, detected and never asked.** Run `uname -s`. `Darwin` is a Mac and nothing below changes. `MINGW` or `MSYS` is Windows with Git Bash: the binary is `claude.exe`; `python3` there is usually the Microsoft Store stub, so find a real Python 3 (`python` or `py`, or install it with `winget install -e --id Python.Python.3.12 --scope user` and use its full path), install `tzdata` into it (`"$PY" -m pip install --user tzdata`, then prove `zoneinfo.ZoneInfo('Asia/Jerusalem')` loads), and use that Python wherever a step below says `python3`. If `uname` itself fails you are in PowerShell without Git for Windows: install it (`winget install -e --id Git.Git`), and the owner fully closes and reopens Claude Code before anything else.
+
 **Git on the vault.** The absorber refuses to run without a restore point.
 
 **The Drive folder.** If they have no folder for this, have them create one and take its id from the URL. If they do, take the existing one — and check what else is in it, because the liveness test assumes nothing else writes there.
@@ -46,7 +48,7 @@ Everything else you do yourself.
 
 1. **`git init` in the vault**, if it is not already a repo. It is a change to their machine.
 2. **Turning on the Google Drive connector** at claude.ai, and signing in to Wispr Flow. Both are theirs to click; you cannot.
-3. **The first `launchctl` line**, if the terminal asks for it. Hand it as one self-contained line that prints something whatever happens.
+3. **The first scheduling command**, if the terminal asks for it: the first `launchctl` line on a Mac, the `schedule.ps1 -Action install` line on Windows. Hand it as one self-contained line that prints something whatever happens.
 
 ## 5. Check what is already here, because most of it is
 
@@ -62,9 +64,9 @@ Everything else you do yourself.
 2-makers/vibecoder/refs/transcript-infrastructure.md   why each of the above exists
 ```
 
-**Confirm all seven are there.** If they are, there is nothing to install and you are configuring, not building — go to step 6.
+**Confirm all seven are there.** If they are, there is nothing to install and you are configuring, not building — go to step 6. **On Windows also confirm `.claude/scripts/windows/schedule.ps1`**, the Task Scheduler side; if it is missing, run `apply-to-vault.py` as below, which copies it on Windows.
 
-**If they are missing**, this vault predates the pipeline. Clone the kit outside the vault, run `python3 makers/apply-to-vault.py "<their MAKERS folder>"`, and it places all of the above and applies the edits a new maker needs in files the vault already has. It is idempotent, it never overwrites a file the owner has edited, and **it stops rather than guessing if an anchor is missing** — which means their vault is a version the payload was not written against, so you read that file and place the line by hand. **The clone is then deletable.**
+**If they are missing**, this vault predates the pipeline. Clone the kit outside the vault, run `python3 makers/apply-to-vault.py "<their MAKERS folder>"` (on Windows, with the Python step 3 found), and it places all of the above and applies the edits a new maker needs in files the vault already has. It is idempotent, it never overwrites a file the owner has edited, and **it stops rather than guessing if an anchor is missing** — which means their vault is a version the payload was not written against, so you read that file and place the line by hand. **The clone is then deletable.**
 
 **Either way the machinery ends up in the vault, and that is the point.** Ledgers and heartbeats land beside their script, so inside the vault they are in git — versioned, revertable, and survivable. Outside it they are on their own, and a ledger that is lost re-uploads every meeting the owner ever recorded.
 
@@ -76,15 +78,21 @@ Everything else you do yourself.
 
 **`MIN_TRANSCRIPT_CHARS`** is read by both scripts from one place. A second copy of it drifts, and the drift shows up as documents landing in the folder that the absorber then throws away on sight.
 
-## 7. Seed the ledgers before the first run
+## 7. The uploader's first run, then seed the absorber's ledger
+
+**The uploader goes first.** On a fresh install the Drive folder is empty, and the uploader is what fills it. It has its own guard and refuses to start on an empty ledger. Override it exactly once, by hand, after they have seen how many meetings will upload and where, and agreed, or their entire meeting history uploads into a folder someone else may read:
+
+```
+ALLOW_EMPTY_STATE=1 bash .claude/scripts/transcript-uploader.sh
+```
+
+**Then seed the absorber:**
 
 ```
 SEED_ONLY=1 bash .claude/scripts/transcript-absorber.sh
 ```
 
-Writes down everything already in the folder as handled, absorbs nothing, writes nothing to the vault. **Without it the first scheduled run absorbs their whole history in one night.**
-
-The uploader has its own guard and refuses to start on an empty ledger. Override it exactly once, after they have seen and agreed, or their entire meeting history uploads into a folder someone else may read.
+Writes down everything already in the folder as handled, absorbs nothing, writes nothing to the vault. **Without it the first scheduled run absorbs their whole history in one night.** The order is not arbitrary: a seed on an empty folder refuses on purpose, because an empty listing proves no connection, and then there is nothing to seed and no id to delete in step 8.
 
 ## 8. Prove it with a real run, and check four things
 
@@ -100,7 +108,7 @@ Delete **one** id from the absorber's ledger by hand and run it once. The ledger
 
 ## 9. Schedule, register, and check
 
-Load the two jobs from the kit's `launchd/` templates, pointing at the vault's script paths. The uploader first, the absorber at least half an hour later.
+On a Mac, load the two jobs from the kit's `launchd/` templates, pointing at the vault's script paths. On Windows, register them in Task Scheduler with `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w .claude/scripts/windows/schedule.ps1)" -Action install -LabelPrefix "<LABEL_PREFIX>" -ScriptsDir "$(cygpath -m "$PWD/.claude/scripts")"`; it must print one block per job, each pointing inside the vault. The uploader first, the absorber at least half an hour later.
 
 Add the row to `tools.md` following `/connect-a-tool`: what it is, what it can do, that it **writes**, the date, and how to switch it off.
 
@@ -113,7 +121,7 @@ Four short lines, in their language, with no file names they do not need:
 - their meetings reach the team twice a day, on their own
 - the team **proposes** standing rules and never writes them into the list that loads every session
 - anything a run did is undone with one line, and you give them that line
-- switching it off is two `launchctl bootout` commands and deleting two files, and **nothing about it is irreversible**
+- switching it off is two `launchctl bootout` commands and deleting two files on a Mac, or one `schedule.ps1 -Action uninstall` line on Windows, and **nothing about it is irreversible**
 
 ## The one hard rule
 

@@ -233,7 +233,7 @@ Four things are checked, and all four:
 
 ## How to take it apart
 
-Two `launchctl bootout` commands and deleting the two schedule files stops everything. The scripts and the ledgers can stay or go. Anything a run wrote is one `git revert` away, and the command is in the log and the heartbeat.
+Removing the two scheduled jobs stops everything: two `launchctl bootout` commands and deleting the two schedule files on a Mac, one `schedule.ps1 -Action uninstall` line (Task Scheduler's `Unregister-ScheduledTask`) on Windows. The scripts and the ledgers can stay or go. Anything a run wrote is one `git revert` away, and the command is in the log and the heartbeat.
 
 **The Scribe can stay in the team afterwards** and be handed a transcript by hand. Nothing about the pipeline is required for the protocol to run.
 
