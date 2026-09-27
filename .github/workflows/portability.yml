@@ -102,7 +102,7 @@ jobs:
           done
           grep -h "Asia/Jerusalem" "$T"/block*.out
           echo "why the path block runs python with PYTHONUTF8=1: a Hebrew username, printed into a pipe"
-          printf 'default: '; env -u PYTHONUTF8 python -c "print('C:/Users/\u05d3\u05e0\u05d4')" 2>&1 | od -An -tx1 | head -1
+          printf 'default: '; env -u PYTHONUTF8 python -c "print('C:/Users/\u05d3\u05e0\u05d4')" 2>&1 | od -An -tx1 | head -1 || true
           printf 'utf8:    '; PYTHONUTF8=1 python -c "print('C:/Users/\u05d3\u05e0\u05d4')" | od -An -tx1 | head -1
           grep -hiE '^[a-z]:/.*python' "$T"/block*.out
 
