@@ -2,7 +2,7 @@
 # apply-check.sh <work-dir> - apply-to-vault.py on a fixture MAKERS vault (V1 item 8).
 # Asserts: --check reports work, the apply succeeds, a second --check is clean, every file it
 # edited keeps LF endings, and the scripts' .gitattributes landed. On Windows also that the
-# Windows scheduler landed, and a negative control: the kit as it was on main writes CRLF.
+# Windows scheduler landed, and a negative control: the kit as it was before the Windows port (0fedf23) writes CRLF.
 set -u
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 W="$1"; rm -rf "$W"; mkdir -p "$W"
@@ -24,13 +24,13 @@ CR_FILES="$(find "$W/vault" -type f \( -name '*.md' -o -name '*.sh' -o -name '*.
 [ -f "$W/vault/.claude/scripts/.gitattributes" ] && ok ".claude/scripts/.gitattributes landed" || bad ".gitattributes missing"
 if [ "$WIN" = 1 ]; then
   [ -f "$W/vault/.claude/scripts/windows/schedule.ps1" ] && ok "Windows: .claude/scripts/windows/schedule.ps1 landed" || bad "schedule.ps1 missing"
-  # Negative control: apply-to-vault.py as it is on main, run from the same place in the kit.
-  if git -C "$KIT" show origin/main:makers/apply-to-vault.py > "$KIT/makers/apply-to-vault-main.py" 2>/dev/null; then
+  # Negative control: apply-to-vault.py as it was before the port (0fedf23), run from the same place in the kit.
+  if git -C "$KIT" show 0fedf23:makers/apply-to-vault.py > "$KIT/makers/apply-to-vault-main.py" 2>/dev/null; then
     "$PY" "$KIT/.github/portability/make-fixture-vault.py" "$W/vault-main" >/dev/null
     "$PY" "$KIT/makers/apply-to-vault-main.py" "$W/vault-main" > /dev/null 2>&1
     n="$(find "$W/vault-main" -type f -name '*.md' | while IFS= read -r f; do [ "$(crs "$f")" = 0 ] || echo "$f"; done | wc -l | tr -d ' ')"
     rm -f "$KIT/makers/apply-to-vault-main.py"
-    [ "$n" -gt 0 ] && ok "negative control: main's apply-to-vault.py wrote CRLF into $n file(s) on Windows" || bad "negative control: main wrote no CRLF, so this check proves nothing"
+    [ "$n" -gt 0 ] && ok "negative control: the pre-port apply-to-vault.py wrote CRLF into $n file(s) on Windows" || bad "negative control: the pre-port kit wrote no CRLF, so this check proves nothing"
   fi
 else
   [ ! -e "$W/vault/.claude/scripts/windows" ] && ok "Mac: no Windows scheduler copied into the vault" || bad "Mac vault received windows/"

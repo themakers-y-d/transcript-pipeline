@@ -45,14 +45,14 @@ jobs:
           done
           bash -n scripts/transcript-uploader.sh && bash -n scripts/transcript-absorber.sh && echo "bash -n: both scripts parse"
 
-      - name: "1. negative control: main (no .gitattributes) checks out CRLF on the same runner"
+      - name: "1. negative control: the kit before the Windows port (0fedf23, no .gitattributes) checks out CRLF on the same runner"
         run: |
-          git worktree add --detach "$RUNNER_TEMP/neg" origin/main
+          git worktree add --detach "$RUNNER_TEMP/neg" 0fedf23
           cd "$RUNNER_TEMP/neg"
           test ! -e .gitattributes
           for f in scripts/*.sh scripts/*.py; do printf '%s  CR bytes: ' "$f"; tr -cd '\r' < "$f" | wc -c; done
           n=$(tr -cd '\r' < scripts/transcript-uploader.sh | wc -c | tr -d ' '); [ "$n" -gt 0 ]
-          echo "so the check in the step above fails on main and passes on this branch: .gitattributes is what decides it."
+          echo "so the check in the step above fails on the pre-port kit and passes now: .gitattributes is what decides it."
           echo "--- what the CRLF copy does, for the record (informational, not asserted):"
           ( source scripts/config.example.sh > "$RUNNER_TEMP/src.txt" 2>&1; head -3 "$RUNNER_TEMP/src.txt"; printf 'LABEL_PREFIX after source: %q\n' "$LABEL_PREFIX" ) || true
           bash -n scripts/transcript-uploader.sh && echo "bash -n on the CRLF uploader: parses" || echo "bash -n on the CRLF uploader: FAILS"
