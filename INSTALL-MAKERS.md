@@ -148,6 +148,8 @@ STEP 6d. The report goes at the top level of 3-work/now/transcript-absorption/ n
 ALLOW_EMPTY_STATE=1 bash .claude/scripts/transcript-uploader.sh
 ```
 
+⛔ **הרץ אותה ברקע** (`run_in_background` בכלי ה-Bash) וחכה להודעה שהסתיימה. היא ארוכה משתי הדקות שהכלי מחכה כברירת מחדל, וכלי שמגיע לתקרה עוצר אותה באמצע העלאה, והריצה הבאה מעלה שוב את מה שכבר עלה. אותו דבר לריצות החיות של הסופג.
+
 **ואז הזריעה של הסופג:**
 
 ```
