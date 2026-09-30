@@ -14,8 +14,10 @@ WHY IT IS A SCRIPT AND NOT A LIST OF INSTRUCTIONS
     gets missed, and the failure surfaces weeks later as "the system never mentions my meetings".
 
 USAGE
-    apply-to-vault.py <vault-path> [--check]
+    apply-to-vault.py <vault-path> [--check] [--refresh-check-the-system]
     --check reports what would change and writes nothing. Exit 0 if everything is in place.
+    --refresh-check-the-system replaces an older /check-the-system even when it holds lines
+    the kit's baseline does not; only after the owner has seen those lines. See CHECK_SKILL.
 """
 import os
 import shutil
@@ -275,8 +277,60 @@ TOUCHED = ["2-makers/morty/morty.md",
           + [rel for rel, _b, _a in CRAFT_COUNT_FIXES] \
           + [rel for rel, _anchor, _add, _marker in EDITS]
 
+# ---------------------------------------------------------------------------
+# The one file this kit may REPLACE rather than edit.
+#
+# Owners who bought in the first cohort have a /check-the-system older than the version
+# this kit was written against. Nothing in it was reworded: check 15 and the born-later
+# paragraph are simply not there yet, so three of the kit's anchors have no parallel line
+# to go after, and the run stops. Seen on a real owner's vault on 30.09.2026: every other
+# file passed, this one failed on all three, and the install waited on a reply from MAKERS.
+#
+# This file can be replaced where the others cannot, because it is the product's and not
+# the owner's. Nothing in the system asks them to write in it, and its own hard rule is
+# "fix nothing during the scan". So an older copy is refreshed to the baseline the kit
+# carries (the exact version its anchors come from), and the edits then apply to that.
+#
+# The guard is that nothing of theirs is lost: every line of their copy must be a line of
+# the baseline, or a line of an older product version (older-lines.txt, taken from the
+# product's history: every real first-cohort copy carries at least one such line). A line
+# that is neither is the owner's writing or a wording we never shipped, and only the owner
+# can tell which, so the run stops and prints those lines. --refresh-check-the-system
+# replaces anyway, once they have seen them and said so.
+# ---------------------------------------------------------------------------
+CHECK_SKILL = ".claude/skills/check-the-system/SKILL.md"
+CHECK_BASELINE = HERE / "baseline" / "check-the-system.SKILL.md"
+CHECK_OLDER = HERE / "baseline" / "check-the-system.older-lines.txt"
+REFRESH_FLAG = "--refresh-check-the-system"
 
-def preflight_edits(vault):
+
+def _lines(text):
+    return {" ".join(l.split()) for l in text.replace("\r", "").split("\n") if l.strip()}
+
+
+def stale_check_skill(vault):
+    """None when the vault's check-the-system can take the kit's edits as it is. Otherwise
+    the sorted lines of the owner's copy that the baseline does not contain (possibly none).
+
+    Stale means one of the three things the kit needs from this file is missing in BOTH its
+    before and its after form: the craft-count sentence, the born-later anchor, check 15's.
+    """
+    text = (vault / CHECK_SKILL).read_text(encoding="utf-8")
+    needs = [(b, a) for rel, b, a in CRAFT_COUNT_FIXES if rel == CHECK_SKILL] \
+          + [(anchor, marker) for rel, anchor, _add, marker in EDITS if rel == CHECK_SKILL]
+    if all(b in text or a in text for b, a in needs):
+        return None
+    ours = _lines(CHECK_BASELINE.read_text(encoding="utf-8")) \
+         | {l for l in _lines(CHECK_OLDER.read_text(encoding="utf-8")) if not l.startswith("%% ")}
+    return sorted(_lines(text) - ours)
+
+
+def read(vault, rel, overrides):
+    """A vault file's text, or the text it is about to be given (see CHECK_SKILL)."""
+    return overrides[rel] if rel in overrides else (vault / rel).read_text(encoding="utf-8")
+
+
+def preflight_edits(vault, overrides=None):
     """Every anchor this run depends on, checked BEFORE a single byte is written.
 
     WHY THIS IS NOT PARANOIA. The edits are applied last, after the payload and the scripts
@@ -289,6 +343,7 @@ def preflight_edits(vault):
     An edit whose marker (or whose rewritten wording) is already present is satisfied and is
     not checked, so this stays correct on a re-run and on a partly-applied vault.
     """
+    overrides = overrides or {}
     bad = []
 
     def need(rel, present, wanted, what):
@@ -307,12 +362,12 @@ def preflight_edits(vault):
         need("2-makers/morty/morty.md", mt, [before, after],
              f"neither wording found: {before[:44]}...")
     for rel, before, after in CRAFT_COUNT_FIXES:
-        need(rel, (vault / rel).read_text(encoding="utf-8"), [before, after],
+        need(rel, read(vault, rel, overrides), [before, after],
              "neither the old nor the new craft-file count sentence is there")
     for rel, anchor, _add, marker in EDITS:
         if anchor is None:
             continue
-        need(rel, (vault / rel).read_text(encoding="utf-8"), [anchor, marker],
+        need(rel, read(vault, rel, overrides), [anchor, marker],
              f"the anchor line is not there: {anchor[:52]}...")
     return bad
 
@@ -330,6 +385,7 @@ def main(argv):
         print(__doc__.strip(), file=sys.stderr)
         return 2
     check = "--check" in argv
+    refresh = REFRESH_FLAG in argv
     positional = [a for a in argv[1:] if not a.startswith("-")]
     if not positional:
         print(__doc__.strip(), file=sys.stderr)
@@ -360,9 +416,35 @@ def main(argv):
         print("which is a MAKERS matter and not something this script can fix.", file=sys.stderr)
         return 1
 
+    # An older /check-the-system is refreshed rather than edited (see CHECK_SKILL). Decided
+    # here, before the anchor gate, because the refreshed copy is what that gate must see.
+    overrides = {}
+    foreign = stale_check_skill(vault)
+    if foreign is not None:
+        overrides[CHECK_SKILL] = CHECK_BASELINE.read_text(encoding="utf-8")
+    blocked = bool(foreign) and not refresh
+
     # Third gate, still before anything is written: every anchor has to be where the kit
     # expects it. Reporting all of them at once beats one per run on a vault that drifted.
-    drifted = preflight_edits(vault)
+    drifted = preflight_edits(vault, overrides)
+    if blocked:
+        print(f"ERROR: {CHECK_SKILL} lacks lines this kit needs, and is not a version it knows,",
+              file=sys.stderr)
+        print("so it cannot be replaced without losing these lines of it:", file=sys.stderr)
+        for line in foreign[:12]:
+            print(f"    | {line[:110]}", file=sys.stderr)
+        if len(foreign) > 12:
+            print(f"    ...and {len(foreign) - 12} more", file=sys.stderr)
+        print("(shortened here: copy any of them from the file itself, never from this output)",
+              file=sys.stderr)
+        print("\nNothing was written. The vault is exactly as it was.", file=sys.stderr)
+        print("What to do: show the owner these lines. If none of them is theirs, run again",
+              file=sys.stderr)
+        print(f"with {REFRESH_FLAG}. If one is, copy it out of the file in full first.",
+              file=sys.stderr)
+        if not drifted:
+            return 1
+        print("", file=sys.stderr)
     if drifted:
         print("ERROR: this vault has the right files, but some of them have been reworded",
               file=sys.stderr)
@@ -380,6 +462,13 @@ def main(argv):
         return 1
 
     changed = 0
+
+    if CHECK_SKILL in overrides:
+        changed += 1
+        print(f"  ~ refresh: {CHECK_SKILL} (an older copy, replaced with the version this kit "
+              "was written against)")
+        if not check:
+            write_lf(vault / CHECK_SKILL, overrides.pop(CHECK_SKILL))
 
     for rel in PAYLOAD:
         src, dst = HERE / rel, vault / rel
@@ -411,7 +500,7 @@ def main(argv):
 
     for rel, before, after in CRAFT_COUNT_FIXES:
         cp = vault / rel
-        ct = cp.read_text(encoding="utf-8")
+        ct = read(vault, rel, overrides)
         if before in ct:
             changed += 1
             print(f"  ~ reword: {rel} (it counted three craft files, there are four)")
@@ -467,7 +556,7 @@ def main(argv):
         if not path.exists():
             print(f"ERROR: cannot edit {rel}, it does not exist in this vault", file=sys.stderr)
             return 1
-        text = path.read_text(encoding="utf-8")
+        text = read(vault, rel, overrides)
         if marker in text:
             print(f"  = already edited, left alone: {rel}")
             continue

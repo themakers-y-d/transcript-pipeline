@@ -35,5 +35,43 @@ if [ "$WIN" = 1 ]; then
 else
   [ ! -e "$W/vault/.claude/scripts/windows" ] && ok "Mac: no Windows scheduler copied into the vault" || bad "Mac vault received windows/"
 fi
+# A first-cohort vault: /check-the-system from before check 15 and the born-later paragraph.
+# The kit must refresh it from its baseline and finish; with a line the owner wrote in it, it
+# must stop and leave the file untouched until --refresh-check-the-system is passed.
+C=".claude/skills/check-the-system/SKILL.md"
+mk_old() {
+  "$PY" "$KIT/.github/portability/make-fixture-vault.py" "$1" >/dev/null
+  "$PY" - "$KIT/makers/baseline/check-the-system.SKILL.md" "$1/$C" <<'EOF'
+import sys
+drop = ("**Three paths are born later", "**15. Makers nothing", "**Skip the finding while",
+        "Past that, a maker carrying", "⛔ **Never report a maker")
+lines = open(sys.argv[1], encoding="utf-8").read().split("\n")
+open(sys.argv[2], "w", encoding="utf-8", newline="\n").write("\n".join(l for l in lines if not l.startswith(drop)))
+EOF
+}
+mk_old "$W/old"
+"$PY" "$KIT/makers/apply-to-vault.py" "$W/old" --check > "$W/old1.txt" 2>&1; o1=$?
+"$PY" "$KIT/makers/apply-to-vault.py" "$W/old" > /dev/null 2>&1; o2=$?
+"$PY" "$KIT/makers/apply-to-vault.py" "$W/old" --check > "$W/old3.txt" 2>&1; o3=$?
+[ "$o1" = 1 ] && grep -q "refresh: $C" "$W/old1.txt" && ok "older check-the-system: --check reports a refresh" || { bad "older check-the-system --check (rc $o1)"; cat "$W/old1.txt"; }
+[ "$o2" = 0 ] && [ "$o3" = 0 ] && [ "$(grep -c 'A fourth is born later\|16. Recordings that skipped\|Four makers ship' "$W/old/$C")" = 3 ] \
+  && ok "older check-the-system: refreshed, all three edits landed, second --check clean" || bad "older check-the-system apply (rc $o2/$o3)"
+mk_old "$W/own"; echo "My own note: also check the Canva folder." >> "$W/own/$C"; cp "$W/own/$C" "$W/own.before"
+"$PY" "$KIT/makers/apply-to-vault.py" "$W/own" > "$W/own1.txt" 2>&1; w1=$?
+[ "$w1" = 1 ] && grep -q "My own note" "$W/own1.txt" && cmp -s "$W/own/$C" "$W/own.before" && [ ! -e "$W/own/2-makers/scribe" ] \
+  && ok "owner line in an older check-the-system: stops, prints it, writes nothing" || bad "owner line guard (rc $w1)"
+"$PY" "$KIT/makers/apply-to-vault.py" "$W/own" --refresh-check-the-system > /dev/null 2>&1; w2=$?
+[ "$w2" = 0 ] && ok "--refresh-check-the-system replaces it once the owner has seen the line" || bad "refresh flag (rc $w2)"
+# The same, on a real first-cohort copy (product 4a1d291, 20.08), which is not a subset of the
+# baseline: its check 8 is an older wording. It must refresh with no flag.
+"$PY" "$KIT/.github/portability/make-fixture-vault.py" "$W/real" >/dev/null
+cp "$KIT/.github/portability/fixtures/check-the-system-4a1d291.md" "$W/real/$C"
+"$PY" "$KIT/makers/apply-to-vault.py" "$W/real" > "$W/real1.txt" 2>&1; r1=$?
+"$PY" "$KIT/makers/apply-to-vault.py" "$W/real" --check > /dev/null 2>&1; r2=$?
+[ "$r1" = 0 ] && [ "$r2" = 0 ] && grep -q "refresh: $C" "$W/real1.txt" \
+  && ok "real first-cohort check-the-system (4a1d291): refreshed with no flag, second --check clean" || { bad "real 4a1d291 (rc $r1/$r2)"; cat "$W/real1.txt"; }
+CR_OLD="$(for v in old own real; do find "$W/$v" -type f -name '*.md' | while IFS= read -r f; do [ "$(crs "$f")" = 0 ] || echo "$f"; done; done)"
+[ -z "$CR_OLD" ] && ok "refreshed vaults carry no CR" || { bad "CR after refresh:"; echo "$CR_OLD"; }
+
 echo "APPLY-CHECK $([ "$FAILS" = 0 ] && echo GREEN || echo "RED ($FAILS failed)")"
 [ "$FAILS" = 0 ]
