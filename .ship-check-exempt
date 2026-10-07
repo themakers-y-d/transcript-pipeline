@@ -22,7 +22,9 @@ memory/rules.md
 # והמדריך נוקב בהם כפי שהם נראים אצלו אחרי ההעתקה.
 2-makers/morty/morty.md
 2-makers/scribe/scribe.md
-2-makers/vibecoder/refs/transcript-infrastructure.md
+2-makers/vibecoder/vibecoder.md
+2-makers/morty/refs/
+transcript-infrastructure.md
 3-work/now/transcript-absorption/_process/proposed-rules.md
 _process/proposed-rules.md
 proposed-rules.md
@@ -38,4 +40,5 @@ records.md
 system.md
 
 [novoice]
+.github/portability/fixtures/  # עותק מילה במילה של קובץ מוצר באנגלית מהמחזור הראשון, שהבדיקה מריצה עליו את הערכה. לשנות בו מקף פירושו לבדוק קובץ שאף לקוח לא מחזיק.
 makers/  # מטען של קובצי סוכן באנגלית שנוסע לוולט של הקורא, לא פרוזה שהוא קורא במדריך. מקף ארוך באנגלית אינו הסימן שכלל המקפים נולד לתפוס.
