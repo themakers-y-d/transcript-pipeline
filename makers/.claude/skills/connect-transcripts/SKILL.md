@@ -5,13 +5,13 @@ description: מחבר את צינור התמלולים. Connect this MAKERS syst
 
 # Connect the transcripts
 
-Owner: the Vibecoder. This installs machinery that runs unattended and writes into `1-me/` and `4-learned/`, which is the highest-consequence thing anyone installs in this system.
+Owner: {{TOOLS_OWNER}}. This installs machinery that runs unattended and writes into `1-me/` and `4-learned/`, which is the highest-consequence thing anyone installs in this system.
 
 Work at low freedom. Follow the steps in order and stop where a step says stop.
 
 ## 0. Open the reference before you touch anything
 
-> [!danger] Read `2-makers/vibecoder/refs/transcript-infrastructure.md` in full, first.
+> [!danger] Read `2-makers/{{TOOLS_OWNER_DIR}}/refs/transcript-infrastructure.md` in full, first.
 > It is what must EXIST and why, complete enough to rebuild the pipeline from nothing. The scripts you are about to install are a proven implementation of it — **but they are the implementation, not the authority.** The moment something on this machine does not fit them, that file is what you reason from.
 
 Nothing below repeats it. These are the steps; the mechanics and every reason are there.
@@ -61,7 +61,7 @@ Everything else you do yourself.
 .claude/scripts/empty-register.py           the bounded retry for empty recordings
 .claude/scripts/config.example.sh           the values, with the reason for each
 2-makers/scribe/                            the maker that reads what arrives
-2-makers/vibecoder/refs/transcript-infrastructure.md   why each of the above exists
+2-makers/{{TOOLS_OWNER_DIR}}/refs/transcript-infrastructure.md   why each of the above exists
 ```
 
 **Confirm all seven are there.** If they are, there is nothing to install and you are configuring, not building — go to step 6. **On Windows also confirm `.claude/scripts/windows/schedule.ps1`**, the Task Scheduler side; if it is missing, run `apply-to-vault.py` as below, which copies it on Windows.
@@ -130,7 +130,7 @@ Four short lines, in their language, with no file names they do not need:
 
 ## Input and output
 
-**In:** `2-makers/vibecoder/refs/transcript-infrastructure.md`, the kit's `INSTALL-MAKERS.md`, the owner's Wispr and Drive access, this vault.
+**In:** `2-makers/{{TOOLS_OWNER_DIR}}/refs/transcript-infrastructure.md`, the kit's `INSTALL-MAKERS.md`, the owner's Wispr and Drive access, this vault.
 
 **Out:** the scripts and their config in `.claude/scripts/`, two loaded scheduled jobs, one proven end-to-end run with its report on disk, a row in `tools.md`, and the Scribe reachable from both its doors.
 

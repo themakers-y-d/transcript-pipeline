@@ -6,7 +6,7 @@ Call it when a transcript arrives — *"יש תמלול חדש"*, *"תספוג �
 
 It also runs twice a day with nobody watching, which is what the rest of this file is built around, and the protocol it follows is `/absorb-transcript`.
 
-**It does not connect anything and it does not run the nightly job — that is the Vibecoder's, through `/connect-transcripts`. It does not turn a meeting into finished words for anyone to read — that is the Writer's. And it never writes `4-learned/state.md` — that file has one writer and it is the Archivist.**
+**It does not connect anything and it does not run the nightly job — that is {{TOOLS_OWNER}}'s, through `/connect-transcripts`. It does not turn a meeting into finished words for anyone to read — that is the Writer's. And it never writes `4-learned/state.md` — that file has one writer and it is the Archivist.**
 
 ---
 
@@ -99,7 +99,7 @@ Not one flat list. Each maker gets what it should learn, phrased as the line tha
 | Positioning, the offer, the audience, an objection | `2-makers/marketer/craft.md` |
 | How it looks, brand, layout | `2-makers/designer/craft.md` |
 | Ads, budget, distribution | `2-makers/campaigner/craft.md` |
-| Something that runs, a tool, a bug | `2-makers/vibecoder/craft.md` |
+| Something that runs, a tool, a bug | `2-makers/{{TOOLS_OWNER_DIR}}/craft.md` |
 | Finding out what is true | `2-makers/researcher/craft.md` |
 | How the system works, or how to explain it | `2-makers/rick/craft.md` |
 | How a session closes, what gets kept | `2-makers/archivist/craft.md` |

@@ -148,6 +148,9 @@ jobs:
       - name: "8. apply-to-vault.py on a fixture MAKERS vault (LF kept, .gitattributes and schedule.ps1 land)"
         run: bash .github/portability/apply-check.sh "$(cygpath -u "$RUNNER_TEMP")/apply"
 
+      - name: "8b. apply-to-vault.py on a fixture MAKERS vault without the Vibecoder (the product since 04.10.2026)"
+        run: bash .github/portability/apply-check.sh "$(cygpath -u "$RUNNER_TEMP")/apply-no-vibecoder" --no-vibecoder
+
       - name: "5. negative control: the same suite at 24000 characters a part fails its long upload"
         run: |
           T="$(cygpath -u "$RUNNER_TEMP")/suite24k"
@@ -167,6 +170,7 @@ jobs:
           path: |
             ${{ runner.temp }}/תיקייה עם רווח/suite/out
             ${{ runner.temp }}/apply
+            ${{ runner.temp }}/apply-no-vibecoder
           if-no-files-found: ignore
 
   macos:
@@ -189,3 +193,6 @@ jobs:
 
       - name: "8. apply-to-vault.py on a fixture MAKERS vault"
         run: bash .github/portability/apply-check.sh "$RUNNER_TEMP/apply"
+
+      - name: "8b. apply-to-vault.py on a fixture MAKERS vault without the Vibecoder"
+        run: bash .github/portability/apply-check.sh "$RUNNER_TEMP/apply-no-vibecoder" --no-vibecoder

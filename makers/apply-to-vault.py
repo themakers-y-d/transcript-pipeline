@@ -18,6 +18,8 @@ USAGE
     --check reports what would change and writes nothing. Exit 0 if everything is in place.
     --refresh-check-the-system replaces an older /check-the-system even when it holds lines
     the kit's baseline does not; only after the owner has seen those lines. See CHECK_SKILL.
+    On a MAKERS vault the first line printed says which maker owns connecting tools there:
+    "מצב: עם ווייבקודר" or "מצב: בלי ווייבקודר". Both install; nothing is asked.
 """
 import os
 import shutil
@@ -30,7 +32,14 @@ HERE = Path(__file__).resolve().parent
 # The payload: files copied in whole. A destination that already exists is left
 # alone and reported, never overwritten — the owner may have edited it.
 # ---------------------------------------------------------------------------
-PAYLOAD = [
+#
+# Each entry is (where it is in the kit, where it lands in the vault). Most are the same path.
+# The two that differ belong to the maker who owns connecting tools, and which maker that is
+# depends on the vault (see "Who owns connecting tools" below).
+def _same(*rels):
+    return [(r, r) for r in rels]
+
+PAYLOAD_HEAD = _same(
     "2-makers/scribe/scribe.md",
     ".claude/skills/absorb-transcript/SKILL.md",
     ".claude/skills/connect-transcripts/SKILL.md",
@@ -40,15 +49,72 @@ PAYLOAD = [
     "5-library/messaging/messaging.md",
     "5-library/objections/objections.md",
     "3-work/now/transcript-absorption/README.md",
-    # The reference, and the pointer line without which no maker ever opens it.
-    # /check-the-system check 8c requires every refs/ folder to be named from its maker's
-    # craft.md, and team.md's own rule is that a shelf with no named reader is a pile.
-    "2-makers/vibecoder/refs/transcript-infrastructure.md",
-    "2-makers/vibecoder/craft.md",
-    # Keeps the owner's own git from checking the scripts out with CRLF on Windows after a
-    # revert or a stash pop. Scoped to .claude/scripts/, never the owner's root settings.
-    ".claude/scripts/.gitattributes",
-]
+)
+# Keeps the owner's own git from checking the scripts out with CRLF on Windows after a
+# revert or a stash pop. Scoped to .claude/scripts/, never the owner's root settings.
+PAYLOAD_TAIL = _same(".claude/scripts/.gitattributes")
+
+# ---------------------------------------------------------------------------
+# Who owns connecting tools, decided by LOOKING, never by asking the owner.
+#
+# Owners who bought before 04.10.2026 have a Vibecoder, and connecting a tool is its trade.
+# The product removed it that day (makers-product 6e9a97e): /connect-a-tool now belongs to no
+# single maker, and Morty runs it with the owner in the main conversation. A newer vault
+# therefore has no 2-makers/vibecoder/ at all, and this kit used to stop on it.
+#
+# Both are correct systems, so both install. WITH a Vibecoder, everything below is exactly
+# what this kit always did, byte for byte, and an installed owner sees no change. WITHOUT
+# one, Morty owns /connect-transcripts the same way he owns /connect-a-tool: the reference
+# lands in his refs/, and a craft.md of his names it, because check 8c and team.md both say a
+# refs/ folder is reached from its maker's craft.md and nothing else.
+#
+# The payload texts that name the owner are written ONCE in the kit, with two tokens, and
+# rendered here. A path the nightly run follows ("real paths, not roles") is decided in code
+# at install time, never left to the model to work out at 3am.
+# ---------------------------------------------------------------------------
+VIBECODER_FILE = "2-makers/vibecoder/vibecoder.md"
+REFS_SRC = "tools-owner/refs/transcript-infrastructure.md"
+TOKENS = {
+    True:  {"{{TOOLS_OWNER}}": "the Vibecoder", "{{TOOLS_OWNER_DIR}}": "vibecoder"},
+    False: {"{{TOOLS_OWNER}}": "Morty",         "{{TOOLS_OWNER_DIR}}": "morty"},
+}
+STATE_LINE = {True: "מצב: עם ווייבקודר", False: "מצב: בלי ווייבקודר"}
+
+# The reference, and the pointer line without which no maker ever opens it.
+# /check-the-system check 8c requires every refs/ folder to be named from its maker's
+# craft.md, and team.md's own rule is that a shelf with no named reader is a pile.
+PAYLOAD_OWNER = {
+    True:  [(REFS_SRC, "2-makers/vibecoder/refs/transcript-infrastructure.md"),
+            ("2-makers/vibecoder/craft.md", "2-makers/vibecoder/craft.md")],
+    False: [(REFS_SRC, "2-makers/morty/refs/transcript-infrastructure.md"),
+            ("2-makers/morty/craft.md", "2-makers/morty/craft.md")],
+}
+
+
+def render(data, has_vibecoder):
+    """The payload file as it lands in this vault. A file without tokens is returned as it is."""
+    if b"{{" not in data:
+        return data
+    text = data.decode("utf-8")
+    for token, value in TOKENS[has_vibecoder].items():
+        text = text.replace(token, value)
+    if "{{" in text:
+        raise ValueError("a payload file holds a token this kit does not know")
+    return text.encode("utf-8")
+
+
+# Morty's craft.md may already exist: a craft file is born the first time a debrief has a line
+# for it, and Morty is a maker like any other. The kit's copy is then left alone, as every
+# payload file is, and the shelf line is appended instead. Without it the reference lands in a
+# refs/ that nothing names, which is exactly what check 8c reports and nothing ever opens.
+MORTY_CRAFT = "2-makers/morty/craft.md"
+MORTY_SHELF_MARKER = "refs/transcript-infrastructure.md"
+MORTY_SHELF_ADD = """
+---
+
+## The reference shelf
+
+**`refs/transcript-infrastructure.md`**: what a transcript pipeline is made of and why each piece is there, complete enough to rebuild from nothing. Opened by `/connect-transcripts`, and by anyone repairing that pipeline later. Its proven implementation ships in this vault, dormant, at `.claude/scripts/`; the reference is the authority and the scripts are one correct way of satisfying it."""
 
 # ---------------------------------------------------------------------------
 # The scripts go INTO the vault, at .claude/scripts/, exactly where this owner's
@@ -106,6 +172,18 @@ VIBECODER_ADD = """
 
 **Recorded meetings are their own job, and a much bigger one.** Connecting them installs two jobs that run unattended and write into `1-me/` and `4-learned/`, so it has its own skill with its own gates: `/connect-transcripts`. Never hand-build that one, and never report it connected off a job that merely loaded."""
 
+# Without a Vibecoder the same paragraph goes to Morty, after the one that hands him
+# /connect-a-tool (product 6e9a97e). A vault where the Vibecoder was deleted by hand has no
+# such paragraph, so the line every Morty file carries just above it is the fallback.
+MORTY_CONNECT_ANCHORS = (
+    "Neither is a trade, so neither gets a maker; both are the steps that keep a live account and a live page safe.",
+    "Hold only the opening line of each of these files in mind. Open one in full at the moment you hand over, and not before.",
+)
+MORTY_CONNECT_ADD = """
+
+**Recorded meetings are their own job, and a much bigger one than connecting a tool.** Connecting them installs two jobs that run unattended and write into `1-me/` and `4-learned/`, so it has its own skill with its own gates: `/connect-transcripts`. Run it with the owner yourself, in this conversation, the same way as `/connect-a-tool`, and open `craft.md` in your folder first: its shelf names the reference that skill is built on. Never hand-build it, and never report it connected off a job that merely loaded."""
+MORTY_CONNECT_MARKER = "Recorded meetings are their own job"
+
 MARKETER_ADD = """
 
 ---
@@ -140,9 +218,13 @@ SYSTEM_ROW = "\n| A meeting that was recorded: who was in the room, what actuall
 # Morty's file states the team's size twice, in prose. A count written into prose rots the
 # first time an eleventh maker arrives, and it rots SILENTLY: nothing checks a number in a
 # sentence. So these two are reworded to carry no count at all rather than bumped to ten.
-MORTY_NINE_1 = ("Every owner hits work their nine makers do not cover",
+# A vault without the Vibecoder says "eight" where an older one says "nine" (product 6e9a97e).
+# Either count goes, for the same reason; the "before" side of each pair is therefore a tuple.
+MORTY_NINE_1 = (("Every owner hits work their nine makers do not cover",
+                 "Every owner hits work their eight makers do not cover"),
                 "Every owner hits work the makers they started with do not cover")
-MORTY_NINE_2 = ("The nine makers they start with are the floor, never the ceiling.",
+MORTY_NINE_2 = (("The nine makers they start with are the floor, never the ceiling.",
+                 "The eight makers they start with are the floor, never the ceiling."),
                 "The makers they start with are the floor, never the ceiling.")
 # Adding a craft.md to a maker that shipped without one leaves FOUR files saying otherwise,
 # and the first of them is load-bearing: the maker's own input list tells it the file does not
@@ -163,8 +245,23 @@ CRAFT_COUNT_FIXES = [
      "Four makers ship with a craft file and six without"),
 ]
 
-MORTY_NINE_3 = ("the owner slowly learns the system only does nine things",
+MORTY_NINE_3 = (("the owner slowly learns the system only does nine things",
+                 "the owner slowly learns the system only does eight things"),
                 "the owner slowly learns the system only does the handful of things it shipped with")
+
+# Without a Vibecoder the fourth craft file is Morty's, and the team is nine with the Scribe:
+# four with a craft file, five without.
+CRAFT_COUNT_FIXES_MORTY = [
+    ("2-makers/README.md",
+     "The Writer, the Marketer and the Designer ship with a `craft.md` beside them.",
+     "The Writer, the Marketer, the Designer and Morty ship with a `craft.md` beside them."),
+    (".claude/rules/team.md",
+     "Three makers ship with a `craft.md` in their folder: the Writer, the Marketer and the Designer. The rest have none, and that is correct.",
+     "Four makers ship with a `craft.md` in their folder: the Writer, the Marketer, the Designer and Morty. The rest have none, and that is correct."),
+    (".claude/skills/check-the-system/SKILL.md",
+     "Three makers ship with a craft file and six without",
+     "Four makers ship with a craft file and five without"),
+]
 
 # system.md describes the two agents that work in their own window. The Scribe is a THIRD
 # shape it does not describe: unattended, twice a day, writing without being watched. A shape
@@ -261,6 +358,34 @@ EDITS = [
 
 REQUIRED = ["CLAUDE.md", "2-makers/morty/morty.md", "4-learned/state.md", ".claude/rules/records.md"]
 
+
+def tables(has_vibecoder):
+    """Everything that depends on who owns connecting tools, for one vault.
+
+    With the Vibecoder these are exactly the tables this kit always had, in the same order,
+    so a run on such a vault copies, rewords, edits and prints exactly what it always did.
+    """
+    if has_vibecoder:
+        edits, fixes, owner_file = EDITS, CRAFT_COUNT_FIXES, [VIBECODER_FILE]
+    else:
+        edits = [("2-makers/morty/morty.md", MORTY_CONNECT_ANCHORS, MORTY_CONNECT_ADD, MORTY_CONNECT_MARKER)
+                 if rel == VIBECODER_FILE else (rel, anchor, add, marker)
+                 for rel, anchor, add, marker in EDITS]
+        fixes, owner_file = CRAFT_COUNT_FIXES_MORTY, []
+    touched = ["2-makers/morty/morty.md"] + owner_file + [".claude/skills/absorb-the-owner/SKILL.md"] \
+        + [rel for rel, _b, _a in fixes] + [rel for rel, _anchor, _add, _marker in edits]
+    return {
+        "payload": PAYLOAD_HEAD + PAYLOAD_OWNER[has_vibecoder] + PAYLOAD_TAIL,
+        "edits": edits,
+        "fixes": fixes,
+        "touched": touched,
+    }
+
+
+def anchors_of(anchor):
+    """An edit's anchor is one string, or a tuple of alternatives tried in order."""
+    return anchor if isinstance(anchor, tuple) else (anchor,)
+
 # Every vault file this script READS or EDITS, derived from the tables above so the list can
 # never drift from them. REQUIRED answers "is this a MAKERS vault"; this answers "is it a
 # MAKERS vault this kit can still work on". The audience for this kit bought BEFORE the
@@ -271,11 +396,9 @@ REQUIRED = ["CLAUDE.md", "2-makers/morty/morty.md", "4-learned/state.md", ".clau
 # there is: 2-makers/scribe/ present, CLAUDE.md and system.md routing to it, and Morty's
 # table -- the one that actually routes -- with no row for it. Exactly the silent failure
 # the docstring says this script exists to prevent.
-TOUCHED = ["2-makers/morty/morty.md",
-           "2-makers/vibecoder/vibecoder.md",
-           ".claude/skills/absorb-the-owner/SKILL.md"] \
-          + [rel for rel, _b, _a in CRAFT_COUNT_FIXES] \
-          + [rel for rel, _anchor, _add, _marker in EDITS]
+#
+# The list depends on the vault, so it is built by tables() above. A vault without a
+# Vibecoder is not "older than the kit", it is newer, and it is no longer asked for one.
 
 # ---------------------------------------------------------------------------
 # The one file this kit may REPLACE rather than edit.
@@ -308,7 +431,7 @@ def _lines(text):
     return {" ".join(l.split()) for l in text.replace("\r", "").split("\n") if l.strip()}
 
 
-def stale_check_skill(vault):
+def stale_check_skill(vault, t):
     """None when the vault's check-the-system can take the kit's edits as it is. Otherwise
     the sorted lines of the owner's copy that the baseline does not contain (possibly none).
 
@@ -316,8 +439,8 @@ def stale_check_skill(vault):
     before and its after form: the craft-count sentence, the born-later anchor, check 15's.
     """
     text = (vault / CHECK_SKILL).read_text(encoding="utf-8")
-    needs = [(b, a) for rel, b, a in CRAFT_COUNT_FIXES if rel == CHECK_SKILL] \
-          + [(anchor, marker) for rel, anchor, _add, marker in EDITS if rel == CHECK_SKILL]
+    needs = [(b, a) for rel, b, a in t["fixes"] if rel == CHECK_SKILL] \
+          + [(anchor, marker) for rel, anchor, _add, marker in t["edits"] if rel == CHECK_SKILL]
     if all(b in text or a in text for b, a in needs):
         return None
     ours = _lines(CHECK_BASELINE.read_text(encoding="utf-8")) \
@@ -330,7 +453,7 @@ def read(vault, rel, overrides):
     return overrides[rel] if rel in overrides else (vault / rel).read_text(encoding="utf-8")
 
 
-def preflight_edits(vault, overrides=None):
+def preflight_edits(vault, t, has_vibecoder, overrides=None):
     """Every anchor this run depends on, checked BEFORE a single byte is written.
 
     WHY THIS IS NOT PARANOIA. The edits are applied last, after the payload and the scripts
@@ -351,32 +474,35 @@ def preflight_edits(vault, overrides=None):
             bad.append(f"{rel}: {what}")
 
     mt = (vault / "2-makers/morty/morty.md").read_text(encoding="utf-8")
-    vt = (vault / "2-makers/vibecoder/vibecoder.md").read_text(encoding="utf-8")
     at = (vault / ".claude/skills/absorb-the-owner/SKILL.md").read_text(encoding="utf-8")
 
-    need("2-makers/vibecoder/vibecoder.md", vt, [VIBECODER_CRAFT_FROM, VIBECODER_CRAFT_TO],
-         "neither the original nor the rewritten craft.md sentence is there")
+    if has_vibecoder:
+        vt = (vault / VIBECODER_FILE).read_text(encoding="utf-8")
+        need(VIBECODER_FILE, vt, [VIBECODER_CRAFT_FROM, VIBECODER_CRAFT_TO],
+             "neither the original nor the rewritten craft.md sentence is there")
     need(".claude/skills/absorb-the-owner/SKILL.md", at, [ABSORB_OWNER_FROM, ABSORB_OWNER_TO],
          "neither the original nor the rewritten trigger wording is there")
-    for before, after in (MORTY_NINE_1, MORTY_NINE_2, MORTY_NINE_3):
-        need("2-makers/morty/morty.md", mt, [before, after],
-             f"neither wording found: {before[:44]}...")
-    for rel, before, after in CRAFT_COUNT_FIXES:
+    for befores, after in (MORTY_NINE_1, MORTY_NINE_2, MORTY_NINE_3):
+        need("2-makers/morty/morty.md", mt, [*befores, after],
+             f"neither wording found: {befores[0][:44]}...")
+    for rel, before, after in t["fixes"]:
         need(rel, read(vault, rel, overrides), [before, after],
              "neither the old nor the new craft-file count sentence is there")
-    for rel, anchor, _add, marker in EDITS:
+    for rel, anchor, _add, marker in t["edits"]:
         if anchor is None:
             continue
-        need(rel, read(vault, rel, overrides), [anchor, marker],
-             f"the anchor line is not there: {anchor[:52]}...")
+        need(rel, read(vault, rel, overrides), [*anchors_of(anchor), marker],
+             f"the anchor line is not there: {anchors_of(anchor)[0][:52]}...")
     return bad
 
 
 def main(argv):
     # On Windows a piped stdout uses the local code page, and printing a vault path with Hebrew
-    # in it would crash the run halfway. UTF-8 there; nothing changes on a Mac.
-    if os.name == "nt":
-        for stream in (sys.stdout, sys.stderr):
+    # in it would crash the run halfway. UTF-8 there. Every run now prints a Hebrew line (the
+    # state line below), so the same goes for any other stream that is not UTF-8 already; a
+    # Mac terminal is UTF-8 and nothing changes there.
+    for stream in (sys.stdout, sys.stderr):
+        if os.name == "nt" or (getattr(stream, "encoding", None) or "").lower().replace("-", "") != "utf8":
             try:
                 stream.reconfigure(encoding="utf-8", errors="replace")
             except (AttributeError, ValueError):
@@ -395,11 +521,21 @@ def main(argv):
     missing = [r for r in REQUIRED if not (vault / r).exists()]
     if missing:
         print(f"ERROR: {vault} is not a MAKERS vault. Missing: {', '.join(missing)}", file=sys.stderr)
+        print("What to do: nothing was written. Run this again with the path of the MAKERS folder "
+              "the owner opens every day, the one with CLAUDE.md and 2-makers/morty/ in it.",
+              file=sys.stderr)
         return 1
+
+    # Who owns connecting tools in this vault (see "Who owns connecting tools" above). One
+    # line, always printed, so whoever reads the output knows which of the two shapes this is
+    # without asking the owner.
+    has_vibecoder = (vault / VIBECODER_FILE).is_file()
+    t = tables(has_vibecoder)
+    print(STATE_LINE[has_vibecoder], flush=True)
 
     # Second gate, and it runs before a single byte is copied: the vault must still contain
     # every file this kit edits. Stopping here leaves the vault exactly as it was found.
-    absent = sorted({p for p in TOUCHED if not (vault / p).exists()})
+    absent = sorted({p for p in t["touched"] if not (vault / p).exists()})
     if absent:
         print("ERROR: this MAKERS vault is older than the version this kit was written against.",
               file=sys.stderr)
@@ -419,14 +555,14 @@ def main(argv):
     # An older /check-the-system is refreshed rather than edited (see CHECK_SKILL). Decided
     # here, before the anchor gate, because the refreshed copy is what that gate must see.
     overrides = {}
-    foreign = stale_check_skill(vault)
+    foreign = stale_check_skill(vault, t)
     if foreign is not None:
         overrides[CHECK_SKILL] = CHECK_BASELINE.read_text(encoding="utf-8")
     blocked = bool(foreign) and not refresh
 
     # Third gate, still before anything is written: every anchor has to be where the kit
     # expects it. Reporting all of them at once beats one per run on a vault that drifted.
-    drifted = preflight_edits(vault, overrides)
+    drifted = preflight_edits(vault, t, has_vibecoder, overrides)
     if blocked:
         print(f"ERROR: {CHECK_SKILL} lacks lines this kit needs, and is not a version it knows,",
               file=sys.stderr)
@@ -461,6 +597,20 @@ def main(argv):
               file=sys.stderr)
         return 1
 
+    # Every payload file is read and rendered BEFORE the first one is written. A kit that cannot
+    # render one of them must stop with the vault untouched, not halfway through copying.
+    bodies = {}
+    for src_rel, _rel in t["payload"]:
+        src = HERE / src_rel
+        try:
+            bodies[src_rel] = render(src.read_bytes(), has_vibecoder)
+        except (OSError, ValueError) as e:
+            print(f"ERROR: the kit itself is broken at {src_rel} ({e}).", file=sys.stderr)
+            print("Nothing was written. The vault is exactly as it was.", file=sys.stderr)
+            print("What to do: do not install from this copy. Clone the kit again; if it still "
+                  "stops here, that is a MAKERS matter.", file=sys.stderr)
+            return 1
+
     changed = 0
 
     if CHECK_SKILL in overrides:
@@ -470,10 +620,10 @@ def main(argv):
         if not check:
             write_lf(vault / CHECK_SKILL, overrides.pop(CHECK_SKILL))
 
-    for rel in PAYLOAD:
-        src, dst = HERE / rel, vault / rel
+    for src_rel, rel in t["payload"]:
+        src, dst = HERE / src_rel, vault / rel
         if not src.is_file():
-            print(f"ERROR: payload file missing from the kit: {rel}", file=sys.stderr)
+            print(f"ERROR: payload file missing from the kit: {src_rel}", file=sys.stderr)
             return 1
         if dst.exists():
             print(f"  = already there, left alone: {rel}")
@@ -482,23 +632,35 @@ def main(argv):
         print(f"  + copy: {rel}")
         if not check:
             dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
+            if b"{{" not in src.read_bytes():        # no token: the exact bytes, as always
+                shutil.copy2(src, dst)
+            else:
+                dst.write_bytes(bodies[src_rel])
+
+    if not has_vibecoder and (vault / MORTY_CRAFT).exists():
+        ct = (vault / MORTY_CRAFT).read_text(encoding="utf-8")
+        if MORTY_SHELF_MARKER not in ct:
+            changed += 1
+            print(f"  ~ edit: {MORTY_CRAFT} (it was already there, and did not name the new shelf)")
+            if not check:
+                write_lf(vault / MORTY_CRAFT, ct.rstrip("\n") + "\n" + MORTY_SHELF_ADD + "\n")
 
     # The two count-in-prose rewrites, applied before the insertions so a re-run is a no-op.
     mp = vault / "2-makers/morty/morty.md"
     mt = mp.read_text(encoding="utf-8")
-    vp = vault / "2-makers/vibecoder/vibecoder.md"
-    vt = vp.read_text(encoding="utf-8")
-    if VIBECODER_CRAFT_FROM in vt:
-        changed += 1
-        print("  ~ reword: 2-makers/vibecoder/vibecoder.md (it was told it has no craft file)")
-        if not check:
-            write_lf(vp, vt.replace(VIBECODER_CRAFT_FROM, VIBECODER_CRAFT_TO, 1))
-    elif VIBECODER_CRAFT_TO not in vt:
-        print("ERROR: neither wording found in vibecoder.md", file=sys.stderr)
-        return 1
+    if has_vibecoder:
+        vp = vault / VIBECODER_FILE
+        vt = vp.read_text(encoding="utf-8")
+        if VIBECODER_CRAFT_FROM in vt:
+            changed += 1
+            print("  ~ reword: 2-makers/vibecoder/vibecoder.md (it was told it has no craft file)")
+            if not check:
+                write_lf(vp, vt.replace(VIBECODER_CRAFT_FROM, VIBECODER_CRAFT_TO, 1))
+        elif VIBECODER_CRAFT_TO not in vt:
+            print("ERROR: neither wording found in vibecoder.md", file=sys.stderr)
+            return 1
 
-    for rel, before, after in CRAFT_COUNT_FIXES:
+    for rel, before, after in t["fixes"]:
         cp = vault / rel
         ct = read(vault, rel, overrides)
         if before in ct:
@@ -521,13 +683,14 @@ def main(argv):
         print("ERROR: neither wording found in absorb-the-owner/SKILL.md", file=sys.stderr)
         return 1
 
-    for before, after in (MORTY_NINE_1, MORTY_NINE_2, MORTY_NINE_3):
-        if before in mt:
+    for befores, after in (MORTY_NINE_1, MORTY_NINE_2, MORTY_NINE_3):
+        before = next((b for b in befores if b in mt), None)
+        if before is not None:
             mt = mt.replace(before, after)
             changed += 1
             print(f"  ~ reword: 2-makers/morty/morty.md ('{before[:34]}...')")
         elif after not in mt:
-            print(f"ERROR: neither wording found in morty.md: {before[:50]}", file=sys.stderr)
+            print(f"ERROR: neither wording found in morty.md: {befores[0][:50]}", file=sys.stderr)
             return 1
     if not check:
         write_lf(mp, mt)
@@ -551,7 +714,7 @@ def main(argv):
             if name.endswith((".sh", ".py")):
                 dst.chmod(0o755)
 
-    for rel, anchor, addition, marker in EDITS:
+    for rel, anchor, addition, marker in t["edits"]:
         path = vault / rel
         if not path.exists():
             print(f"ERROR: cannot edit {rel}, it does not exist in this vault", file=sys.stderr)
@@ -563,7 +726,8 @@ def main(argv):
         if anchor is None:                       # append at the end of the file
             new = text.rstrip("\n") + "\n" + addition + "\n"
         else:
-            if anchor not in text:
+            anchor = next((a for a in anchors_of(anchor) if a in text), None)
+            if anchor is None:
                 print(f"ERROR: the anchor line was not found in {rel}. This vault is a version "
                       f"this payload was not written against; stopping rather than guessing "
                       f"where the line goes.", file=sys.stderr)

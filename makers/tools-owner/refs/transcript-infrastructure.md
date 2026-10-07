@@ -1,6 +1,6 @@
 # transcript-infrastructure.md — what a transcript pipeline is made of, and why each piece is there
 
-Reference for the Vibecoder. `/connect-transcripts` opens it before it builds anything, and anyone repairing the pipeline months later opens it first.
+Reference for {{TOOLS_OWNER}}. `/connect-transcripts` opens it before it builds anything, and anyone repairing the pipeline months later opens it first.
 
 ⚠️ **This is not an installation recipe, and it is deliberately not written as one.** A recipe works exactly as long as nothing deviates, and the first time something does — a tool renamed, a folder that already has files in it, a machine where the binary sits somewhere else — an agent following a recipe has nothing left to reason from.
 
