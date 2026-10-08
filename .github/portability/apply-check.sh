@@ -49,14 +49,28 @@ CR_FILES="$(find "$W/vault" -type f \( -name '*.md' -o -name '*.sh' -o -name '*.
 [ -f "$W/vault/.claude/scripts/.gitattributes" ] && ok ".claude/scripts/.gitattributes landed" || bad ".gitattributes missing"
 if [ "$WIN" = 1 ]; then
   [ -f "$W/vault/.claude/scripts/windows/schedule.ps1" ] && ok "Windows: .claude/scripts/windows/schedule.ps1 landed" || bad "schedule.ps1 missing"
-  # Negative control: apply-to-vault.py as it was before the port (0fedf23), run from the same place in the kit.
+  # Negative control: the whole kit as it was before the port (0fedf23), its script AND its payload,
+  # extracted with LF (autocrlf off) so any CR in the vault was written by that script, not copied.
+  # Not the old script dropped into today's kit: today's payload moved (the refs file now lives in
+  # makers/tools-owner/), the old script stops on "payload file missing" before its first edit,
+  # writes nothing, and the control reads that silence as "no CRLF" (run 37742302060).
   # With the Vibecoder only: the pre-port kit never knew a vault without one, so there it proves nothing.
-  if [ -z "$FIX" ] && git -C "$KIT" show 0fedf23:makers/apply-to-vault.py > "$KIT/makers/apply-to-vault-main.py" 2>/dev/null; then
+  if [ -z "$FIX" ]; then
+    mkdir -p "$W/prekit"
+    git -C "$KIT" -c core.autocrlf=false archive 0fedf23 makers scripts | tar -x -C "$W/prekit"
     "$PY" "$KIT/.github/portability/make-fixture-vault.py" "$W/vault-main" >/dev/null
-    "$PY" "$KIT/makers/apply-to-vault-main.py" "$W/vault-main" > /dev/null 2>&1
+    "$PY" "$W/prekit/makers/apply-to-vault.py" "$W/vault-main" > "$W/prekit-apply.txt" 2>&1; prc=$?
     n="$(find "$W/vault-main" -type f -name '*.md' | while IFS= read -r f; do [ "$(crs "$f")" = 0 ] || echo "$f"; done | wc -l | tr -d ' ')"
-    rm -f "$KIT/makers/apply-to-vault-main.py"
-    [ "$n" -gt 0 ] && ok "negative control: the pre-port apply-to-vault.py wrote CRLF into $n file(s) on Windows" || bad "negative control: the pre-port kit wrote no CRLF, so this check proves nothing"
+    src_cr="$(find "$W/prekit" -type f -name '*.md' | while IFS= read -r f; do [ "$(crs "$f")" = 0 ] || echo "$f"; done | wc -l | tr -d ' ')"
+    # It must have actually applied: exit 0 and the Scribe row in Morty's table. A pre-port run that
+    # dies early writes no CRLF either, and that must never read as the control passing or failing.
+    if [ "$prc" != 0 ] || ! grep -q '| \*\*The Scribe\*\* |' "$W/vault-main/2-makers/morty/morty.md"; then
+      bad "negative control did not run: the pre-port kit did not apply to the fixture (rc $prc)"; tail -5 "$W/prekit-apply.txt"
+    elif [ "$src_cr" != 0 ]; then
+      bad "negative control is unsound: the extracted pre-port kit itself carries CR in $src_cr file(s)"
+    else
+      [ "$n" -gt 0 ] && ok "negative control: the pre-port apply-to-vault.py wrote CRLF into $n file(s) on Windows" || bad "negative control: the pre-port kit wrote no CRLF, so this check proves nothing"
+    fi
   fi
 else
   [ ! -e "$W/vault/.claude/scripts/windows" ] && ok "Mac: no Windows scheduler copied into the vault" || bad "Mac vault received windows/"

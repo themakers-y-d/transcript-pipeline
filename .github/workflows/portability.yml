@@ -149,6 +149,8 @@ jobs:
         run: bash .github/portability/apply-check.sh "$(cygpath -u "$RUNNER_TEMP")/apply"
 
       - name: "8b. apply-to-vault.py on a fixture MAKERS vault without the Vibecoder (the product since 04.10.2026)"
+        # Runs even when an earlier step failed, so one red never hides the other vault.
+        if: success() || failure()
         run: bash .github/portability/apply-check.sh "$(cygpath -u "$RUNNER_TEMP")/apply-no-vibecoder" --no-vibecoder
 
       - name: "5. negative control: the same suite at 24000 characters a part fails its long upload"
@@ -195,4 +197,6 @@ jobs:
         run: bash .github/portability/apply-check.sh "$RUNNER_TEMP/apply"
 
       - name: "8b. apply-to-vault.py on a fixture MAKERS vault without the Vibecoder"
+        # Runs even when an earlier step failed, so one red never hides the other vault.
+        if: success() || failure()
         run: bash .github/portability/apply-check.sh "$RUNNER_TEMP/apply-no-vibecoder" --no-vibecoder
